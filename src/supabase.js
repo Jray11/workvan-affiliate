@@ -1,0 +1,7 @@
+import { createClient } from '@supabase/supabase-js'
+
+// Same Supabase instance as Work Van apps
+const supabaseUrl = 'https://wrgmicftdykgaygbnkqn.supabase.co'
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndyZ21pY2Z0ZHlrZ2F5Z2Jua3FuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU2MDIzNTYsImV4cCI6MjA4MTE3ODM1Nn0.CpRdUWBAti0qGCLKIZCaydk4h4Nnifx6apBEwy0k4E8'
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
