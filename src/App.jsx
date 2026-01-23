@@ -5,7 +5,7 @@ import Dashboard from './pages/Dashboard';
 import Referrals from './pages/Referrals';
 import Commissions from './pages/Commissions';
 import Team from './pages/Team';
-import { LayoutDashboard, Users, DollarSign, UserPlus, LogOut, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Users, DollarSign, UserPlus, LogOut, Menu, X, FileText, CheckCircle } from 'lucide-react';
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -219,6 +219,21 @@ export default function App() {
         </div>
       </div>
     );
+  }
+
+  // Terms acceptance screen - show if affiliate hasn't agreed to terms yet
+  // Skip for impersonation (admins viewing as affiliate)
+  if (!isImpersonating && !affiliate.agreed_to_terms_at) {
+    return <TermsAcceptance affiliate={affiliate} onAccept={async () => {
+      const { error } = await supabase
+        .from('affiliates')
+        .update({ agreed_to_terms_at: new Date().toISOString() })
+        .eq('id', affiliate.id);
+
+      if (!error) {
+        setAffiliate({ ...affiliate, agreed_to_terms_at: new Date().toISOString() });
+      }
+    }} onLogout={handleLogout} />;
   }
 
   const navItems = [
@@ -533,6 +548,181 @@ export default function App() {
         )}
         {renderPage()}
       </main>
+    </div>
+  );
+}
+
+// Terms Acceptance Component
+function TermsAcceptance({ affiliate, onAccept, onLogout }) {
+  const [agreed, setAgreed] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleAccept = async () => {
+    if (!agreed) return;
+    setLoading(true);
+    await onAccept();
+    setLoading(false);
+  };
+
+  return (
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%)',
+      padding: '2rem'
+    }}>
+      <div style={{
+        background: '#111',
+        borderRadius: '16px',
+        padding: '2.5rem',
+        width: '100%',
+        maxWidth: '500px',
+        border: '1px solid #222'
+      }}>
+        {/* Header */}
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+          <div style={{
+            width: '64px',
+            height: '64px',
+            background: 'linear-gradient(135deg, #9b59b620, #8e44ad20)',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 1rem'
+          }}>
+            <FileText size={32} color="#9b59b6" />
+          </div>
+          <h1 style={{
+            fontSize: '1.5rem',
+            fontWeight: '700',
+            color: '#e0e0e0',
+            marginBottom: '0.5rem'
+          }}>
+            Welcome, {affiliate.name}!
+          </h1>
+          <p style={{ color: '#888', fontSize: '0.9rem' }}>
+            Before you get started, please review and accept our terms.
+          </p>
+        </div>
+
+        {/* Terms Summary */}
+        <div style={{
+          background: '#1a1a1a',
+          borderRadius: '12px',
+          padding: '1.5rem',
+          marginBottom: '1.5rem'
+        }}>
+          <h3 style={{ color: '#e0e0e0', fontSize: '1rem', marginBottom: '1rem' }}>
+            Partner Agreement Highlights
+          </h3>
+          <ul style={{
+            margin: 0,
+            paddingLeft: '1.25rem',
+            color: '#aaa',
+            fontSize: '0.9rem',
+            lineHeight: '1.7'
+          }}>
+            <li style={{ marginBottom: '0.5rem' }}>Earn commissions on referred customers who subscribe</li>
+            <li style={{ marginBottom: '0.5rem' }}>Commissions paid monthly for active accounts</li>
+            <li style={{ marginBottom: '0.5rem' }}>No spam or misleading marketing practices</li>
+            <li style={{ marginBottom: '0.5rem' }}>Maintain confidentiality of partner resources</li>
+            <li>Work Van reserves the right to modify commission rates</li>
+          </ul>
+        </div>
+
+        {/* Checkbox */}
+        <label style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '0.75rem',
+          marginBottom: '1.5rem',
+          cursor: 'pointer'
+        }}>
+          <input
+            type="checkbox"
+            checked={agreed}
+            onChange={(e) => setAgreed(e.target.checked)}
+            style={{
+              width: '20px',
+              height: '20px',
+              marginTop: '2px',
+              accentColor: '#9b59b6',
+              cursor: 'pointer'
+            }}
+          />
+          <span style={{ color: '#aaa', fontSize: '0.9rem', lineHeight: '1.5' }}>
+            I have read and agree to the{' '}
+            <a
+              href="https://workvanapp.com/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: '#9b59b6', textDecoration: 'none' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              Terms & Conditions
+            </a>
+            {' '}and{' '}
+            <a
+              href="https://workvanapp.com/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: '#9b59b6', textDecoration: 'none' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              Privacy Policy
+            </a>
+          </span>
+        </label>
+
+        {/* Buttons */}
+        <button
+          onClick={handleAccept}
+          disabled={!agreed || loading}
+          style={{
+            width: '100%',
+            padding: '1rem',
+            background: agreed ? 'linear-gradient(135deg, #9b59b6, #8e44ad)' : '#333',
+            border: 'none',
+            borderRadius: '8px',
+            color: '#fff',
+            fontSize: '1rem',
+            fontWeight: '700',
+            cursor: agreed && !loading ? 'pointer' : 'not-allowed',
+            opacity: agreed ? 1 : 0.6,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.5rem',
+            marginBottom: '1rem'
+          }}
+        >
+          {loading ? 'Please wait...' : (
+            <>
+              <CheckCircle size={18} />
+              Accept & Continue
+            </>
+          )}
+        </button>
+
+        <button
+          onClick={onLogout}
+          style={{
+            width: '100%',
+            padding: '0.75rem',
+            background: 'transparent',
+            border: '1px solid #333',
+            borderRadius: '8px',
+            color: '#888',
+            fontSize: '0.9rem',
+            cursor: 'pointer'
+          }}
+        >
+          Sign Out
+        </button>
+      </div>
     </div>
   );
 }
