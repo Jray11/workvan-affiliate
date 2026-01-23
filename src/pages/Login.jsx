@@ -5,7 +5,7 @@ import { Mail, Lock, ArrowRight } from 'lucide-react';
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [mode, setMode] = useState('magic'); // 'magic' or 'password'
+  const [mode, setMode] = useState('password'); // 'magic' or 'password'
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
