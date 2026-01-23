@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 import Login from './pages/Login';
+import SetPassword from './pages/SetPassword';
 import Dashboard from './pages/Dashboard';
 import Referrals from './pages/Referrals';
 import Commissions from './pages/Commissions';
@@ -14,10 +15,20 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isImpersonating, setIsImpersonating] = useState(false);
+  const [setupToken, setSetupToken] = useState(null);
 
   useEffect(() => {
-    // Check for impersonation token first
     const params = new URLSearchParams(window.location.search);
+
+    // Check for password setup token first
+    const token = params.get('token');
+    if (token && window.location.pathname === '/setup') {
+      setSetupToken(token);
+      setLoading(false);
+      return;
+    }
+
+    // Check for impersonation token
     const impersonateToken = params.get('impersonate');
 
     if (impersonateToken) {
@@ -198,6 +209,21 @@ export default function App() {
       }}>
         <div style={{ color: '#888', fontSize: '1.25rem' }}>Loading...</div>
       </div>
+    );
+  }
+
+  // Password setup flow
+  if (setupToken) {
+    return (
+      <SetPassword
+        token={setupToken}
+        onSuccess={() => {
+          // Clear the token and refresh the page to check auth
+          setSetupToken(null);
+          window.history.replaceState({}, document.title, '/');
+          window.location.reload();
+        }}
+      />
     );
   }
 
