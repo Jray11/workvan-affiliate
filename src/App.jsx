@@ -25,6 +25,31 @@ export default function App() {
       return;
     }
 
+    // Check if this is an auth callback (magic link redirect)
+    // The hash contains access_token, refresh_token, etc.
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const accessToken = hashParams.get('access_token');
+    const refreshToken = hashParams.get('refresh_token');
+
+    if (accessToken && refreshToken) {
+      // Process the auth callback - exchange tokens for session
+      supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken
+      }).then(({ data: { session }, error }) => {
+        if (error) {
+          console.error('Error setting session from magic link:', error);
+          setLoading(false);
+        } else if (session) {
+          // Clean up the URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+          setSession(session);
+          loadAffiliate(session.user.id);
+        }
+      });
+      return;
+    }
+
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
