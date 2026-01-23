@@ -5,40 +5,13 @@ import { Mail, Lock, ArrowRight } from 'lucide-react';
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [mode, setMode] = useState('password'); // 'magic' or 'password'
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-
-  const handleMagicLink = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    setMessage('');
-
-    try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: 'https://affiliates.workvanapp.com'
-        }
-      });
-
-      if (error) throw error;
-
-      setMessage('Check your email for a login link!');
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handlePasswordLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    setMessage('');
 
     try {
       const { error } = await supabase.auth.signInWithPassword({
@@ -86,51 +59,8 @@ export default function Login() {
           <p style={{ color: '#888', fontSize: '0.9rem' }}>Affiliate Portal</p>
         </div>
 
-        {/* Mode Toggle */}
-        <div style={{
-          display: 'flex',
-          gap: '0.5rem',
-          marginBottom: '1.5rem',
-          background: '#1a1a1a',
-          borderRadius: '8px',
-          padding: '0.25rem'
-        }}>
-          <button
-            onClick={() => setMode('magic')}
-            style={{
-              flex: 1,
-              padding: '0.6rem',
-              background: mode === 'magic' ? '#ff6b35' : 'transparent',
-              border: 'none',
-              borderRadius: '6px',
-              color: mode === 'magic' ? '#fff' : '#888',
-              fontWeight: '600',
-              cursor: 'pointer',
-              fontSize: '0.85rem'
-            }}
-          >
-            Magic Link
-          </button>
-          <button
-            onClick={() => setMode('password')}
-            style={{
-              flex: 1,
-              padding: '0.6rem',
-              background: mode === 'password' ? '#ff6b35' : 'transparent',
-              border: 'none',
-              borderRadius: '6px',
-              color: mode === 'password' ? '#fff' : '#888',
-              fontWeight: '600',
-              cursor: 'pointer',
-              fontSize: '0.85rem'
-            }}
-          >
-            Password
-          </button>
-        </div>
-
         {/* Form */}
-        <form onSubmit={mode === 'magic' ? handleMagicLink : handlePasswordLogin}>
+        <form onSubmit={handlePasswordLogin}>
           <div style={{ marginBottom: '1rem' }}>
             <label style={{
               display: 'block',
@@ -167,43 +97,41 @@ export default function Login() {
             </div>
           </div>
 
-          {mode === 'password' && (
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '0.5rem',
-                color: '#888',
-                fontSize: '0.85rem'
-              }}>
-                Password
-              </label>
-              <div style={{ position: 'relative' }}>
-                <Lock size={18} style={{
-                  position: 'absolute',
-                  left: '1rem',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: '#666'
-                }} />
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  placeholder="Your password"
-                  style={{
-                    width: '100%',
-                    padding: '0.875rem 1rem 0.875rem 2.75rem',
-                    background: '#1a1a1a',
-                    border: '1px solid #333',
-                    borderRadius: '8px',
-                    color: '#e0e0e0',
-                    fontSize: '1rem'
-                  }}
-                />
-              </div>
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label style={{
+              display: 'block',
+              marginBottom: '0.5rem',
+              color: '#888',
+              fontSize: '0.85rem'
+            }}>
+              Password
+            </label>
+            <div style={{ position: 'relative' }}>
+              <Lock size={18} style={{
+                position: 'absolute',
+                left: '1rem',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: '#666'
+              }} />
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                placeholder="Your password"
+                style={{
+                  width: '100%',
+                  padding: '0.875rem 1rem 0.875rem 2.75rem',
+                  background: '#1a1a1a',
+                  border: '1px solid #333',
+                  borderRadius: '8px',
+                  color: '#e0e0e0',
+                  fontSize: '1rem'
+                }}
+              />
             </div>
-          )}
+          </div>
 
           {error && (
             <div style={{
@@ -216,20 +144,6 @@ export default function Login() {
               marginBottom: '1rem'
             }}>
               {error}
-            </div>
-          )}
-
-          {message && (
-            <div style={{
-              padding: '0.75rem',
-              background: '#4ecca320',
-              border: '1px solid #4ecca340',
-              borderRadius: '8px',
-              color: '#4ecca3',
-              fontSize: '0.85rem',
-              marginBottom: '1rem'
-            }}>
-              {message}
             </div>
           )}
 
@@ -252,9 +166,9 @@ export default function Login() {
               gap: '0.5rem'
             }}
           >
-            {loading ? 'Please wait...' : (
+            {loading ? 'Signing in...' : (
               <>
-                {mode === 'magic' ? 'Send Magic Link' : 'Sign In'}
+                Sign In
                 <ArrowRight size={18} />
               </>
             )}
@@ -267,10 +181,7 @@ export default function Login() {
           color: '#666',
           fontSize: '0.8rem'
         }}>
-          {mode === 'magic'
-            ? "We'll send you a secure link to sign in"
-            : "Enter your affiliate portal credentials"
-          }
+          Contact your administrator if you need access
         </p>
       </div>
     </div>
