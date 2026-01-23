@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
-import { Users, DollarSign, TrendingUp, Copy, Check, ExternalLink } from 'lucide-react';
+import { Users, DollarSign, TrendingUp, Copy, Check, ExternalLink, FileText, Upload, CheckCircle, AlertCircle } from 'lucide-react';
 
-export default function Dashboard({ affiliate }) {
+export default function Dashboard({ affiliate, onAffiliateUpdate }) {
   const [stats, setStats] = useState({
     totalReferrals: 0,
     activeReferrals: 0,
@@ -13,6 +13,8 @@ export default function Dashboard({ affiliate }) {
   });
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [w9Uploading, setW9Uploading] = useState(false);
+  const [w9Error, setW9Error] = useState(null);
 
   const REFERRAL_URL = `https://workvanapp.com?ref=${affiliate.code}`;
 
@@ -73,6 +75,64 @@ export default function Dashboard({ affiliate }) {
     navigator.clipboard.writeText(REFERRAL_URL);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleW9Upload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
+    if (!allowedTypes.includes(file.type)) {
+      setW9Error('Please upload a PDF or image file (JPG, PNG)');
+      return;
+    }
+
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      setW9Error('File size must be less than 10MB');
+      return;
+    }
+
+    setW9Uploading(true);
+    setW9Error(null);
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${affiliate.id}/w9.${fileExt}`;
+
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('affiliate-documents')
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Update affiliate record
+      const { error: updateError } = await supabase
+        .from('affiliates')
+        .update({
+          w9_file_path: fileName,
+          w9_uploaded_at: new Date().toISOString()
+        })
+        .eq('id', affiliate.id);
+
+      if (updateError) throw updateError;
+
+      // Notify parent to refresh affiliate data
+      if (onAffiliateUpdate) {
+        onAffiliateUpdate({
+          ...affiliate,
+          w9_file_path: fileName,
+          w9_uploaded_at: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      console.error('W-9 upload error:', error);
+      setW9Error('Failed to upload W-9. Please try again.');
+    } finally {
+      setW9Uploading(false);
+    }
   };
 
   const formatCurrency = (amount) => {
@@ -326,6 +386,172 @@ export default function Dashboard({ affiliate }) {
             </div>
           </div>
         )}
+      </div>
+
+      {/* W-9 Tax Form Section */}
+      <div style={{
+        background: affiliate.w9_uploaded_at ? '#1a2a1a' : '#1a1a1a',
+        borderRadius: '12px',
+        padding: '1.5rem',
+        border: `1px solid ${affiliate.w9_uploaded_at ? '#2a4a2a' : '#2a2a2a'}`,
+        marginTop: '1rem'
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '1rem'
+        }}>
+          <div style={{
+            width: '48px',
+            height: '48px',
+            borderRadius: '12px',
+            background: affiliate.w9_uploaded_at ? '#4ecca320' : '#ff6b3520',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}>
+            {affiliate.w9_uploaded_at ? (
+              <CheckCircle size={24} color="#4ecca3" />
+            ) : (
+              <FileText size={24} color="#ff6b35" />
+            )}
+          </div>
+          <div style={{ flex: 1 }}>
+            <h3 style={{
+              color: '#e0e0e0',
+              fontSize: '1rem',
+              marginBottom: '0.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem'
+            }}>
+              W-9 Tax Form
+              {!affiliate.w9_uploaded_at && (
+                <span style={{
+                  fontSize: '0.7rem',
+                  padding: '0.2rem 0.5rem',
+                  background: '#ff6b3530',
+                  color: '#ff6b35',
+                  borderRadius: '4px',
+                  fontWeight: '600'
+                }}>
+                  REQUIRED FOR PAYOUTS
+                </span>
+              )}
+            </h3>
+            {affiliate.w9_uploaded_at ? (
+              <div>
+                <p style={{ color: '#4ecca3', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
+                  W-9 submitted successfully
+                </p>
+                <p style={{ color: '#666', fontSize: '0.8rem' }}>
+                  Uploaded on {new Date(affiliate.w9_uploaded_at).toLocaleDateString('en-US', {
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric'
+                  })}
+                </p>
+                <label style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  marginTop: '0.75rem',
+                  padding: '0.5rem 1rem',
+                  background: '#2a2a2a',
+                  border: 'none',
+                  borderRadius: '6px',
+                  color: '#888',
+                  fontSize: '0.85rem',
+                  cursor: 'pointer'
+                }}>
+                  <Upload size={16} />
+                  Upload New W-9
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={handleW9Upload}
+                    style={{ display: 'none' }}
+                  />
+                </label>
+              </div>
+            ) : (
+              <div>
+                <p style={{ color: '#888', fontSize: '0.9rem', marginBottom: '1rem' }}>
+                  Please upload your completed W-9 form to receive commission payouts.
+                  We need this for tax reporting purposes.
+                </p>
+                <div style={{
+                  display: 'flex',
+                  gap: '0.75rem',
+                  flexWrap: 'wrap',
+                  alignItems: 'center'
+                }}>
+                  <label style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.75rem 1.25rem',
+                    background: 'linear-gradient(135deg, #ff6b35, #f7931e)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    color: '#fff',
+                    fontSize: '0.9rem',
+                    fontWeight: '600',
+                    cursor: w9Uploading ? 'wait' : 'pointer',
+                    opacity: w9Uploading ? 0.7 : 1
+                  }}>
+                    <Upload size={18} />
+                    {w9Uploading ? 'Uploading...' : 'Upload W-9'}
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      onChange={handleW9Upload}
+                      disabled={w9Uploading}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+                  <a
+                    href="https://www.irs.gov/pub/irs-pdf/fw9.pdf"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.75rem 1rem',
+                      background: '#2a2a2a',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: '#888',
+                      fontSize: '0.85rem',
+                      textDecoration: 'none'
+                    }}
+                  >
+                    <ExternalLink size={16} />
+                    Download Blank W-9
+                  </a>
+                </div>
+              </div>
+            )}
+            {w9Error && (
+              <div style={{
+                marginTop: '0.75rem',
+                padding: '0.75rem',
+                background: '#2a1a1a',
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                color: '#e74c3c',
+                fontSize: '0.85rem'
+              }}>
+                <AlertCircle size={16} />
+                {w9Error}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

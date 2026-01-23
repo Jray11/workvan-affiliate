@@ -287,9 +287,9 @@ export default function App() {
       case 'commissions':
         return <Commissions affiliate={affiliate} />;
       case 'team':
-        return affiliate.can_recruit ? <Team affiliate={affiliate} /> : <Dashboard affiliate={affiliate} />;
+        return affiliate.can_recruit ? <Team affiliate={affiliate} /> : <Dashboard affiliate={affiliate} onAffiliateUpdate={setAffiliate} />;
       default:
-        return <Dashboard affiliate={affiliate} />;
+        return <Dashboard affiliate={affiliate} onAffiliateUpdate={setAffiliate} />;
     }
   };
 
