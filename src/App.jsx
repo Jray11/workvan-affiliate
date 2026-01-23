@@ -5,7 +5,7 @@ import Dashboard from './pages/Dashboard';
 import Referrals from './pages/Referrals';
 import Commissions from './pages/Commissions';
 import Team from './pages/Team';
-import { LayoutDashboard, Users, DollarSign, UserPlus, LogOut, Menu, X, FileText, CheckCircle } from 'lucide-react';
+import { LayoutDashboard, Users, DollarSign, UserPlus, LogOut, Menu, X, FileText, CheckCircle, Banknote, Building, Upload } from 'lucide-react';
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -232,6 +232,40 @@ export default function App() {
 
       if (!error) {
         setAffiliate({ ...affiliate, agreed_to_terms_at: new Date().toISOString() });
+      }
+    }} onLogout={handleLogout} />;
+  }
+
+  // Direct Deposit setup screen - show after terms accepted but before payout is set up
+  // Skip for impersonation (admins viewing as affiliate)
+  if (!isImpersonating && !affiliate.payout_setup_complete) {
+    return <DirectDepositSetup affiliate={affiliate} onComplete={async (payoutData) => {
+      const { error } = await supabase
+        .from('affiliates')
+        .update({
+          bank_name: payoutData.bankName,
+          routing_number: payoutData.routingNumber,
+          account_number: payoutData.accountNumber,
+          account_type: payoutData.accountType,
+          account_holder_name: payoutData.accountHolderName,
+          tax_id_type: payoutData.taxIdType,
+          tax_id_last4: payoutData.taxIdLast4,
+          payout_setup_complete: true
+        })
+        .eq('id', affiliate.id);
+
+      if (!error) {
+        setAffiliate({ ...affiliate, payout_setup_complete: true });
+      }
+    }} onSkip={async () => {
+      // Allow skipping for now, they can set it up later
+      const { error } = await supabase
+        .from('affiliates')
+        .update({ payout_setup_complete: true })
+        .eq('id', affiliate.id);
+
+      if (!error) {
+        setAffiliate({ ...affiliate, payout_setup_complete: true });
       }
     }} onLogout={handleLogout} />;
   }
@@ -722,6 +756,440 @@ function TermsAcceptance({ affiliate, onAccept, onLogout }) {
         >
           Sign Out
         </button>
+      </div>
+    </div>
+  );
+}
+
+// Direct Deposit Setup Component
+function DirectDepositSetup({ affiliate, onComplete, onSkip, onLogout }) {
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    accountHolderName: affiliate.name || '',
+    bankName: '',
+    routingNumber: '',
+    accountNumber: '',
+    confirmAccountNumber: '',
+    accountType: 'checking',
+    taxIdType: 'ssn',
+    taxId: ''
+  });
+  const [errors, setErrors] = useState({});
+
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!formData.accountHolderName.trim()) {
+      newErrors.accountHolderName = 'Account holder name is required';
+    }
+    if (!formData.bankName.trim()) {
+      newErrors.bankName = 'Bank name is required';
+    }
+    if (!formData.routingNumber.match(/^\d{9}$/)) {
+      newErrors.routingNumber = 'Routing number must be 9 digits';
+    }
+    if (!formData.accountNumber.match(/^\d{4,17}$/)) {
+      newErrors.accountNumber = 'Account number must be 4-17 digits';
+    }
+    if (formData.accountNumber !== formData.confirmAccountNumber) {
+      newErrors.confirmAccountNumber = 'Account numbers do not match';
+    }
+    if (!formData.taxId.match(/^\d{9}$/)) {
+      newErrors.taxId = formData.taxIdType === 'ssn' ? 'SSN must be 9 digits' : 'EIN must be 9 digits';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+
+    setLoading(true);
+    await onComplete({
+      accountHolderName: formData.accountHolderName,
+      bankName: formData.bankName,
+      routingNumber: formData.routingNumber,
+      accountNumber: formData.accountNumber,
+      accountType: formData.accountType,
+      taxIdType: formData.taxIdType,
+      taxIdLast4: formData.taxId.slice(-4)
+    });
+    setLoading(false);
+  };
+
+  const inputStyle = {
+    width: '100%',
+    padding: '0.875rem 1rem',
+    background: '#1a1a1a',
+    border: '1px solid #333',
+    borderRadius: '8px',
+    color: '#e0e0e0',
+    fontSize: '1rem'
+  };
+
+  const labelStyle = {
+    display: 'block',
+    marginBottom: '0.5rem',
+    color: '#aaa',
+    fontSize: '0.85rem',
+    fontWeight: '500'
+  };
+
+  return (
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%)',
+      padding: '2rem'
+    }}>
+      <div style={{
+        background: '#111',
+        borderRadius: '16px',
+        padding: '2.5rem',
+        width: '100%',
+        maxWidth: '500px',
+        border: '1px solid #222'
+      }}>
+        {/* Header */}
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+          <div style={{
+            width: '64px',
+            height: '64px',
+            background: 'linear-gradient(135deg, #4ecca320, #45b7aa20)',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 1rem'
+          }}>
+            <Banknote size={32} color="#4ecca3" />
+          </div>
+          <h1 style={{
+            fontSize: '1.5rem',
+            fontWeight: '700',
+            color: '#e0e0e0',
+            marginBottom: '0.5rem'
+          }}>
+            Direct Deposit Info
+          </h1>
+          <p style={{ color: '#888', fontSize: '0.9rem' }}>
+            Set up your payout information to receive commissions.
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          {/* Account Holder Name */}
+          <div style={{ marginBottom: '1.25rem' }}>
+            <label style={labelStyle}>Account Holder Name</label>
+            <input
+              type="text"
+              value={formData.accountHolderName}
+              onChange={(e) => setFormData({ ...formData, accountHolderName: e.target.value })}
+              placeholder="Full legal name"
+              style={{
+                ...inputStyle,
+                borderColor: errors.accountHolderName ? '#e74c3c' : '#333'
+              }}
+            />
+            {errors.accountHolderName && (
+              <p style={{ color: '#e74c3c', fontSize: '0.8rem', marginTop: '0.25rem' }}>{errors.accountHolderName}</p>
+            )}
+          </div>
+
+          {/* Bank Name */}
+          <div style={{ marginBottom: '1.25rem' }}>
+            <label style={labelStyle}>Bank Name</label>
+            <div style={{ position: 'relative' }}>
+              <Building size={18} style={{
+                position: 'absolute',
+                left: '1rem',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: '#666'
+              }} />
+              <input
+                type="text"
+                value={formData.bankName}
+                onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
+                placeholder="e.g. Chase, Bank of America"
+                style={{
+                  ...inputStyle,
+                  paddingLeft: '2.75rem',
+                  borderColor: errors.bankName ? '#e74c3c' : '#333'
+                }}
+              />
+            </div>
+            {errors.bankName && (
+              <p style={{ color: '#e74c3c', fontSize: '0.8rem', marginTop: '0.25rem' }}>{errors.bankName}</p>
+            )}
+          </div>
+
+          {/* Routing Number */}
+          <div style={{ marginBottom: '1.25rem' }}>
+            <label style={labelStyle}>Routing Number</label>
+            <input
+              type="text"
+              value={formData.routingNumber}
+              onChange={(e) => setFormData({ ...formData, routingNumber: e.target.value.replace(/\D/g, '').slice(0, 9) })}
+              placeholder="9-digit routing number"
+              maxLength={9}
+              style={{
+                ...inputStyle,
+                borderColor: errors.routingNumber ? '#e74c3c' : '#333'
+              }}
+            />
+            {errors.routingNumber && (
+              <p style={{ color: '#e74c3c', fontSize: '0.8rem', marginTop: '0.25rem' }}>{errors.routingNumber}</p>
+            )}
+          </div>
+
+          {/* Account Number */}
+          <div style={{ marginBottom: '1.25rem' }}>
+            <label style={labelStyle}>Account Number</label>
+            <input
+              type="text"
+              value={formData.accountNumber}
+              onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value.replace(/\D/g, '').slice(0, 17) })}
+              placeholder="Account number"
+              style={{
+                ...inputStyle,
+                borderColor: errors.accountNumber ? '#e74c3c' : '#333'
+              }}
+            />
+            {errors.accountNumber && (
+              <p style={{ color: '#e74c3c', fontSize: '0.8rem', marginTop: '0.25rem' }}>{errors.accountNumber}</p>
+            )}
+          </div>
+
+          {/* Confirm Account Number */}
+          <div style={{ marginBottom: '1.25rem' }}>
+            <label style={labelStyle}>Confirm Account Number</label>
+            <input
+              type="text"
+              value={formData.confirmAccountNumber}
+              onChange={(e) => setFormData({ ...formData, confirmAccountNumber: e.target.value.replace(/\D/g, '').slice(0, 17) })}
+              placeholder="Re-enter account number"
+              style={{
+                ...inputStyle,
+                borderColor: errors.confirmAccountNumber ? '#e74c3c' : '#333'
+              }}
+            />
+            {errors.confirmAccountNumber && (
+              <p style={{ color: '#e74c3c', fontSize: '0.8rem', marginTop: '0.25rem' }}>{errors.confirmAccountNumber}</p>
+            )}
+          </div>
+
+          {/* Account Type */}
+          <div style={{ marginBottom: '1.25rem' }}>
+            <label style={labelStyle}>Account Type</label>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <label style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.5rem',
+                padding: '0.875rem',
+                background: formData.accountType === 'checking' ? '#4ecca320' : '#1a1a1a',
+                border: `1px solid ${formData.accountType === 'checking' ? '#4ecca3' : '#333'}`,
+                borderRadius: '8px',
+                cursor: 'pointer',
+                color: formData.accountType === 'checking' ? '#4ecca3' : '#888'
+              }}>
+                <input
+                  type="radio"
+                  name="accountType"
+                  value="checking"
+                  checked={formData.accountType === 'checking'}
+                  onChange={(e) => setFormData({ ...formData, accountType: e.target.value })}
+                  style={{ display: 'none' }}
+                />
+                Checking
+              </label>
+              <label style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.5rem',
+                padding: '0.875rem',
+                background: formData.accountType === 'savings' ? '#4ecca320' : '#1a1a1a',
+                border: `1px solid ${formData.accountType === 'savings' ? '#4ecca3' : '#333'}`,
+                borderRadius: '8px',
+                cursor: 'pointer',
+                color: formData.accountType === 'savings' ? '#4ecca3' : '#888'
+              }}>
+                <input
+                  type="radio"
+                  name="accountType"
+                  value="savings"
+                  checked={formData.accountType === 'savings'}
+                  onChange={(e) => setFormData({ ...formData, accountType: e.target.value })}
+                  style={{ display: 'none' }}
+                />
+                Savings
+              </label>
+            </div>
+          </div>
+
+          {/* Tax ID Section */}
+          <div style={{
+            background: '#1a1a1a',
+            borderRadius: '12px',
+            padding: '1.25rem',
+            marginBottom: '1.5rem'
+          }}>
+            <h3 style={{ color: '#e0e0e0', fontSize: '0.95rem', marginBottom: '1rem' }}>
+              Tax Information (for 1099)
+            </h3>
+
+            {/* Tax ID Type */}
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={labelStyle}>Tax ID Type</label>
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <label style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '0.75rem',
+                  background: formData.taxIdType === 'ssn' ? '#ff6b3520' : '#222',
+                  border: `1px solid ${formData.taxIdType === 'ssn' ? '#ff6b35' : '#333'}`,
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  color: formData.taxIdType === 'ssn' ? '#ff6b35' : '#888',
+                  fontSize: '0.9rem'
+                }}>
+                  <input
+                    type="radio"
+                    name="taxIdType"
+                    value="ssn"
+                    checked={formData.taxIdType === 'ssn'}
+                    onChange={(e) => setFormData({ ...formData, taxIdType: e.target.value })}
+                    style={{ display: 'none' }}
+                  />
+                  SSN (Individual)
+                </label>
+                <label style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '0.75rem',
+                  background: formData.taxIdType === 'ein' ? '#ff6b3520' : '#222',
+                  border: `1px solid ${formData.taxIdType === 'ein' ? '#ff6b35' : '#333'}`,
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  color: formData.taxIdType === 'ein' ? '#ff6b35' : '#888',
+                  fontSize: '0.9rem'
+                }}>
+                  <input
+                    type="radio"
+                    name="taxIdType"
+                    value="ein"
+                    checked={formData.taxIdType === 'ein'}
+                    onChange={(e) => setFormData({ ...formData, taxIdType: e.target.value })}
+                    style={{ display: 'none' }}
+                  />
+                  EIN (Business)
+                </label>
+              </div>
+            </div>
+
+            {/* Tax ID */}
+            <div>
+              <label style={labelStyle}>
+                {formData.taxIdType === 'ssn' ? 'Social Security Number' : 'Employer Identification Number'}
+              </label>
+              <input
+                type="password"
+                value={formData.taxId}
+                onChange={(e) => setFormData({ ...formData, taxId: e.target.value.replace(/\D/g, '').slice(0, 9) })}
+                placeholder={formData.taxIdType === 'ssn' ? '9-digit SSN' : '9-digit EIN'}
+                maxLength={9}
+                style={{
+                  ...inputStyle,
+                  background: '#222',
+                  borderColor: errors.taxId ? '#e74c3c' : '#333'
+                }}
+              />
+              {errors.taxId && (
+                <p style={{ color: '#e74c3c', fontSize: '0.8rem', marginTop: '0.25rem' }}>{errors.taxId}</p>
+              )}
+              <p style={{ color: '#666', fontSize: '0.75rem', marginTop: '0.5rem' }}>
+                Required for tax reporting. We only store the last 4 digits.
+              </p>
+            </div>
+          </div>
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              width: '100%',
+              padding: '1rem',
+              background: loading ? '#333' : 'linear-gradient(135deg, #4ecca3, #45b7aa)',
+              border: 'none',
+              borderRadius: '8px',
+              color: '#fff',
+              fontSize: '1rem',
+              fontWeight: '700',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem',
+              marginBottom: '1rem'
+            }}
+          >
+            {loading ? 'Saving...' : (
+              <>
+                <CheckCircle size={18} />
+                Save & Continue
+              </>
+            )}
+          </button>
+
+          {/* Skip Button */}
+          <button
+            type="button"
+            onClick={onSkip}
+            style={{
+              width: '100%',
+              padding: '0.75rem',
+              background: 'transparent',
+              border: '1px solid #333',
+              borderRadius: '8px',
+              color: '#888',
+              fontSize: '0.9rem',
+              cursor: 'pointer',
+              marginBottom: '0.75rem'
+            }}
+          >
+            Skip for now
+          </button>
+
+          <button
+            type="button"
+            onClick={onLogout}
+            style={{
+              width: '100%',
+              padding: '0.75rem',
+              background: 'transparent',
+              border: 'none',
+              color: '#666',
+              fontSize: '0.85rem',
+              cursor: 'pointer'
+            }}
+          >
+            Sign Out
+          </button>
+        </form>
       </div>
     </div>
   );
