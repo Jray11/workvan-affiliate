@@ -812,9 +812,10 @@ function TermsAcceptance({ affiliate, onAccept, onLogout }) {
   );
 }
 
-// Direct Deposit Setup Component
+// Direct Deposit Setup Component (2-step: Bank Info -> Tax Info)
 function DirectDepositSetup({ affiliate, onComplete, onSkip, onLogout }) {
   const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState(1); // 1 = Bank Info, 2 = Tax Info
   const [formData, setFormData] = useState({
     accountHolderName: affiliate.name || '',
     bankName: '',
@@ -827,7 +828,7 @@ function DirectDepositSetup({ affiliate, onComplete, onSkip, onLogout }) {
   });
   const [errors, setErrors] = useState({});
 
-  const validateForm = () => {
+  const validateStep1 = () => {
     const newErrors = {};
 
     if (!formData.accountHolderName.trim()) {
@@ -845,6 +846,14 @@ function DirectDepositSetup({ affiliate, onComplete, onSkip, onLogout }) {
     if (formData.accountNumber !== formData.confirmAccountNumber) {
       newErrors.confirmAccountNumber = 'Account numbers do not match';
     }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const validateStep2 = () => {
+    const newErrors = {};
+
     if (!formData.taxId.match(/^\d{9}$/)) {
       newErrors.taxId = formData.taxIdType === 'ssn' ? 'SSN must be 9 digits' : 'EIN must be 9 digits';
     }
@@ -853,9 +862,16 @@ function DirectDepositSetup({ affiliate, onComplete, onSkip, onLogout }) {
     return Object.keys(newErrors).length === 0;
   };
 
+  const handleNext = (e) => {
+    e.preventDefault();
+    if (!validateStep1()) return;
+    setErrors({});
+    setStep(2);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    if (!validateStep2()) return;
 
     setLoading(true);
     await onComplete({
@@ -905,6 +921,54 @@ function DirectDepositSetup({ affiliate, onComplete, onSkip, onLogout }) {
         maxWidth: '500px',
         border: '1px solid #222'
       }}>
+        {/* Step Indicator */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          gap: '1rem',
+          marginBottom: '2rem'
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
+          }}>
+            <div style={{
+              width: '28px',
+              height: '28px',
+              borderRadius: '50%',
+              background: step >= 1 ? '#4ecca3' : '#333',
+              color: step >= 1 ? '#000' : '#666',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '0.85rem',
+              fontWeight: '600'
+            }}>1</div>
+            <span style={{ color: step >= 1 ? '#e0e0e0' : '#666', fontSize: '0.85rem' }}>Bank Info</span>
+          </div>
+          <div style={{ width: '40px', height: '2px', background: step >= 2 ? '#4ecca3' : '#333', alignSelf: 'center' }} />
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
+          }}>
+            <div style={{
+              width: '28px',
+              height: '28px',
+              borderRadius: '50%',
+              background: step >= 2 ? '#4ecca3' : '#333',
+              color: step >= 2 ? '#000' : '#666',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '0.85rem',
+              fontWeight: '600'
+            }}>2</div>
+            <span style={{ color: step >= 2 ? '#e0e0e0' : '#666', fontSize: '0.85rem' }}>Tax Info</span>
+          </div>
+        </div>
+
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div style={{
@@ -925,14 +989,17 @@ function DirectDepositSetup({ affiliate, onComplete, onSkip, onLogout }) {
             color: '#e0e0e0',
             marginBottom: '0.5rem'
           }}>
-            Direct Deposit Info
+            {step === 1 ? 'Direct Deposit Info' : 'Tax Information'}
           </h1>
           <p style={{ color: '#888', fontSize: '0.9rem' }}>
-            Set up your payout information to receive commissions.
+            {step === 1
+              ? 'Set up your bank account for commission payouts.'
+              : 'Required for 1099 tax reporting.'}
           </p>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        {step === 1 ? (
+        <form onSubmit={handleNext}>
           {/* Account Holder Name */}
           <div style={{ marginBottom: '1.25rem' }}>
             <label style={labelStyle}>Account Holder Name</label>
@@ -1087,94 +1154,124 @@ function DirectDepositSetup({ affiliate, onComplete, onSkip, onLogout }) {
             </div>
           </div>
 
-          {/* Tax ID Section */}
-          <div style={{
-            background: '#1a1a1a',
-            borderRadius: '12px',
-            padding: '1.25rem',
-            marginBottom: '1.5rem'
-          }}>
-            <h3 style={{ color: '#e0e0e0', fontSize: '0.95rem', marginBottom: '1rem' }}>
-              Tax Information (for 1099)
-            </h3>
+          {/* Next Button */}
+          <button
+            type="submit"
+            style={{
+              width: '100%',
+              padding: '1rem',
+              background: 'linear-gradient(135deg, #4ecca3, #45b7aa)',
+              border: 'none',
+              borderRadius: '8px',
+              color: '#fff',
+              fontSize: '1rem',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem',
+              marginBottom: '1rem'
+            }}
+          >
+            Next: Tax Information
+          </button>
 
-            {/* Tax ID Type */}
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={labelStyle}>Tax ID Type</label>
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <label style={{
-                  flex: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '0.75rem',
-                  background: formData.taxIdType === 'ssn' ? '#ff6b3520' : '#222',
-                  border: `1px solid ${formData.taxIdType === 'ssn' ? '#ff6b35' : '#333'}`,
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  color: formData.taxIdType === 'ssn' ? '#ff6b35' : '#888',
-                  fontSize: '0.9rem'
-                }}>
-                  <input
-                    type="radio"
-                    name="taxIdType"
-                    value="ssn"
-                    checked={formData.taxIdType === 'ssn'}
-                    onChange={(e) => setFormData({ ...formData, taxIdType: e.target.value })}
-                    style={{ display: 'none' }}
-                  />
-                  SSN (Individual)
-                </label>
-                <label style={{
-                  flex: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '0.75rem',
-                  background: formData.taxIdType === 'ein' ? '#ff6b3520' : '#222',
-                  border: `1px solid ${formData.taxIdType === 'ein' ? '#ff6b35' : '#333'}`,
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  color: formData.taxIdType === 'ein' ? '#ff6b35' : '#888',
-                  fontSize: '0.9rem'
-                }}>
-                  <input
-                    type="radio"
-                    name="taxIdType"
-                    value="ein"
-                    checked={formData.taxIdType === 'ein'}
-                    onChange={(e) => setFormData({ ...formData, taxIdType: e.target.value })}
-                    style={{ display: 'none' }}
-                  />
-                  EIN (Business)
-                </label>
-              </div>
-            </div>
-
-            {/* Tax ID */}
-            <div>
-              <label style={labelStyle}>
-                {formData.taxIdType === 'ssn' ? 'Social Security Number' : 'Employer Identification Number'}
+          {/* Skip Button */}
+          <button
+            type="button"
+            onClick={onSkip}
+            style={{
+              width: '100%',
+              padding: '0.75rem',
+              background: 'transparent',
+              border: '1px solid #333',
+              borderRadius: '8px',
+              color: '#888',
+              fontSize: '0.9rem',
+              cursor: 'pointer'
+            }}
+          >
+            Skip for now
+          </button>
+        </form>
+        ) : (
+        <form onSubmit={handleSubmit}>
+          {/* Tax ID Type */}
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label style={labelStyle}>Tax ID Type</label>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <label style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0.875rem',
+                background: formData.taxIdType === 'ssn' ? '#ff6b3520' : '#1a1a1a',
+                border: `1px solid ${formData.taxIdType === 'ssn' ? '#ff6b35' : '#333'}`,
+                borderRadius: '8px',
+                cursor: 'pointer',
+                color: formData.taxIdType === 'ssn' ? '#ff6b35' : '#888',
+                fontSize: '0.9rem'
+              }}>
+                <input
+                  type="radio"
+                  name="taxIdType"
+                  value="ssn"
+                  checked={formData.taxIdType === 'ssn'}
+                  onChange={(e) => setFormData({ ...formData, taxIdType: e.target.value })}
+                  style={{ display: 'none' }}
+                />
+                SSN (Individual)
               </label>
-              <input
-                type="password"
-                value={formData.taxId}
-                onChange={(e) => setFormData({ ...formData, taxId: e.target.value.replace(/\D/g, '').slice(0, 9) })}
-                placeholder={formData.taxIdType === 'ssn' ? '9-digit SSN' : '9-digit EIN'}
-                maxLength={9}
-                style={{
-                  ...inputStyle,
-                  background: '#222',
-                  borderColor: errors.taxId ? '#e74c3c' : '#333'
-                }}
-              />
-              {errors.taxId && (
-                <p style={{ color: '#e74c3c', fontSize: '0.8rem', marginTop: '0.25rem' }}>{errors.taxId}</p>
-              )}
-              <p style={{ color: '#666', fontSize: '0.75rem', marginTop: '0.5rem' }}>
-                Required for tax reporting. We only store the last 4 digits.
-              </p>
+              <label style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0.875rem',
+                background: formData.taxIdType === 'ein' ? '#ff6b3520' : '#1a1a1a',
+                border: `1px solid ${formData.taxIdType === 'ein' ? '#ff6b35' : '#333'}`,
+                borderRadius: '8px',
+                cursor: 'pointer',
+                color: formData.taxIdType === 'ein' ? '#ff6b35' : '#888',
+                fontSize: '0.9rem'
+              }}>
+                <input
+                  type="radio"
+                  name="taxIdType"
+                  value="ein"
+                  checked={formData.taxIdType === 'ein'}
+                  onChange={(e) => setFormData({ ...formData, taxIdType: e.target.value })}
+                  style={{ display: 'none' }}
+                />
+                EIN (Business)
+              </label>
             </div>
+          </div>
+
+          {/* Tax ID */}
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label style={labelStyle}>
+              {formData.taxIdType === 'ssn' ? 'Social Security Number' : 'Employer Identification Number'}
+            </label>
+            <input
+              type="password"
+              value={formData.taxId}
+              onChange={(e) => setFormData({ ...formData, taxId: e.target.value.replace(/\D/g, '').slice(0, 9) })}
+              placeholder={formData.taxIdType === 'ssn' ? '9-digit SSN' : '9-digit EIN'}
+              maxLength={9}
+              style={{
+                ...inputStyle,
+                borderColor: errors.taxId ? '#e74c3c' : '#333'
+              }}
+            />
+            {errors.taxId && (
+              <p style={{ color: '#e74c3c', fontSize: '0.8rem', marginTop: '0.25rem' }}>{errors.taxId}</p>
+            )}
+            <p style={{ color: '#666', fontSize: '0.75rem', marginTop: '0.5rem' }}>
+              Required for tax reporting. We only store the last 4 digits.
+            </p>
           </div>
 
           {/* Submit Button */}
@@ -1206,10 +1303,10 @@ function DirectDepositSetup({ affiliate, onComplete, onSkip, onLogout }) {
             )}
           </button>
 
-          {/* Skip Button */}
+          {/* Back Button */}
           <button
             type="button"
-            onClick={onSkip}
+            onClick={() => setStep(1)}
             style={{
               width: '100%',
               padding: '0.75rem',
@@ -1218,29 +1315,31 @@ function DirectDepositSetup({ affiliate, onComplete, onSkip, onLogout }) {
               borderRadius: '8px',
               color: '#888',
               fontSize: '0.9rem',
-              cursor: 'pointer',
-              marginBottom: '0.75rem'
-            }}
-          >
-            Skip for now
-          </button>
-
-          <button
-            type="button"
-            onClick={onLogout}
-            style={{
-              width: '100%',
-              padding: '0.75rem',
-              background: 'transparent',
-              border: 'none',
-              color: '#666',
-              fontSize: '0.85rem',
               cursor: 'pointer'
             }}
           >
-            Sign Out
+            Back to Bank Info
           </button>
         </form>
+        )}
+
+        {/* Sign Out link */}
+        <button
+          type="button"
+          onClick={onLogout}
+          style={{
+            width: '100%',
+            padding: '0.75rem',
+            background: 'transparent',
+            border: 'none',
+            color: '#666',
+            fontSize: '0.85rem',
+            cursor: 'pointer',
+            marginTop: '1rem'
+          }}
+        >
+          Sign Out
+        </button>
       </div>
     </div>
   );
