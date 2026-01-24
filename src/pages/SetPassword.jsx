@@ -64,34 +64,25 @@ export default function SetPassword({ token, onSuccess }) {
     setLoading(true);
 
     try {
-      // Create the Supabase auth user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: affiliate.email,
-        password: password
+      // Use the API to set the password (handles both new and existing users)
+      const response = await fetch('https://workvanapp.com/api/affiliate-set-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: token,
+          password: password
+        })
       });
 
-      if (authError) {
-        // Check if user already exists
-        if (authError.message?.includes('already registered')) {
-          setError('An account with this email already exists. Please use the login page instead.');
-        } else {
-          throw authError;
-        }
-        return;
-      }
+      const result = await response.json();
 
-      // Clear the setup token
-      await supabase
-        .from('affiliates')
-        .update({
-          password_setup_token: null,
-          password_setup_token_expires_at: null
-        })
-        .eq('id', affiliate.id);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to set password');
+      }
 
       // Sign in with the new credentials
       const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: affiliate.email,
+        email: result.email,
         password: password
       });
 
