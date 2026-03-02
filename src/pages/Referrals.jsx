@@ -12,13 +12,11 @@ export default function Referrals({ affiliate }) {
 
   const loadReferrals = async () => {
     try {
-      const { data } = await supabase
-        .from('companies')
-        .select('id, name, subscription_status, created_at, referral_captured_at')
-        .eq('referred_by_affiliate_id', affiliate.id)
-        .order('created_at', { ascending: false });
+      // Use RPC to bypass RLS (needed for impersonation mode)
+      const { data: stats } = await supabase
+        .rpc('get_affiliate_referral_stats', { p_affiliate_id: affiliate.id });
 
-      setReferrals(data || []);
+      setReferrals(stats?.companies || []);
     } catch (error) {
       console.error('Error loading referrals:', error);
     } finally {

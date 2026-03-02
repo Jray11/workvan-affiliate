@@ -24,11 +24,9 @@ export default function Dashboard({ affiliate, onAffiliateUpdate }) {
 
   const loadStats = async () => {
     try {
-      // Get referred companies
-      const { data: companies } = await supabase
-        .from('companies')
-        .select('id, subscription_status')
-        .eq('referred_by_affiliate_id', affiliate.id);
+      // Get referred companies via RPC (bypasses RLS for impersonation)
+      const { data: referralStats } = await supabase
+        .rpc('get_affiliate_referral_stats', { p_affiliate_id: affiliate.id });
 
       // Get commissions
       const { data: commissions } = await supabase
@@ -46,8 +44,8 @@ export default function Dashboard({ affiliate, onAffiliateUpdate }) {
         teamSize = count || 0;
       }
 
-      const totalReferrals = companies?.length || 0;
-      const activeReferrals = companies?.filter(c => c.subscription_status === 'active').length || 0;
+      const totalReferrals = referralStats?.total_referrals || 0;
+      const activeReferrals = referralStats?.active_referrals || 0;
       const totalEarned = commissions?.reduce((sum, c) => sum + parseFloat(c.commission_amount || 0), 0) || 0;
       const totalOwed = commissions?.filter(c => c.status === 'owed').reduce((sum, c) => sum + parseFloat(c.commission_amount || 0), 0) || 0;
 
