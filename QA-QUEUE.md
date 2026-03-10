@@ -42,3 +42,83 @@
 - **description:** `src/pages/LeadTracker.jsx` (1377 lines) existed only locally. It was never `git add`ed. All previous deploys used `npx vercel --prod` which uploads local files, masking the issue. Any GitHub-triggered build would fail.
 - **fix-notes:** Committed the file. Verified build succeeds.
 - **files-changed:** `src/pages/LeadTracker.jsx`
+
+### QA-AFF-004: Disabled affiliate can still log in and access portal
+- **status:** pending
+- **severity:** critical
+- **reported:** 2026-03-09
+- **description:** `portal_enabled` is only checked during password reset flow (`Login.jsx` line 49). A disabled/terminated affiliate can still sign in with email+password and access the full portal. No re-validation happens after initial login either — if an affiliate is disabled mid-session, they continue with full access until they log out.
+- **fix-notes:**
+- **files-changed:**
+
+### QA-AFF-005: "Skip" payout setup marks affiliate as complete
+- **status:** pending
+- **severity:** critical
+- **reported:** 2026-03-09
+- **description:** The "Skip for now" button in DirectDepositSetup (`App.jsx` line 312) sets `payout_setup_complete: true` without any bank info. The commission/payout system has no way to distinguish "completed setup" from "skipped setup." When payout time comes, there's no bank info to pay to.
+- **fix-notes:**
+- **files-changed:**
+
+### QA-AFF-006: No error feedback on any page — all errors go to console.log
+- **status:** pending
+- **severity:** high
+- **reported:** 2026-03-09
+- **description:** Every page (Dashboard, LeadTracker, Referrals, Commissions, Team) catches errors but only logs to `console.log`. If RPC calls, queries, or mutations fail, the user sees $0 / empty data with zero indication that something went wrong. Affects: `Dashboard.jsx` line 66, `LeadTracker.jsx` lines 87-103, `Referrals.jsx` line 20, `Commissions.jsx` line 26, `Team.jsx` line 66.
+- **fix-notes:**
+- **files-changed:**
+
+### QA-AFF-007: No loading states — plain text "Loading..." on all pages
+- **status:** pending
+- **severity:** high
+- **reported:** 2026-03-09
+- **description:** All 5 pages show plain centered text ("Loading dashboard...", "Loading leads...", etc.) with no spinner or skeleton. On slow connections, users may think the page is frozen.
+- **fix-notes:**
+- **files-changed:**
+
+### QA-AFF-008: Terms/payout DB updates have no try/catch
+- **status:** pending
+- **severity:** high
+- **reported:** 2026-03-09
+- **description:** In `App.jsx`, the terms acceptance update (line 280) and direct deposit update (line 295) have no error handling. If the Supabase update fails (network issue, RLS, etc.), the user is stuck on that screen with no error message and no way to retry.
+- **fix-notes:**
+- **files-changed:**
+
+### QA-AFF-009: Double-submit on all forms — buttons not disabled during submission
+- **status:** pending
+- **severity:** high
+- **reported:** 2026-03-09
+- **description:** LeadTracker add/edit/log-contact forms and Team add-member form don't disable the submit button while the request is in-flight. Clicking multiple times creates duplicate records. Affects: `LeadTracker.jsx` lines 883, 1086, 1301 and `Team.jsx` line 103.
+- **fix-notes:**
+- **files-changed:**
+
+### QA-AFF-010: LeadTracker contact history shows "Invalid Date"
+- **status:** pending
+- **severity:** medium
+- **reported:** 2026-03-09
+- **description:** `LeadTracker.jsx` line 814: `new Date(contact.contacted_at).toLocaleString()` — if `contacted_at` is null (DB default not set or insert didn't include it), renders "Invalid Date" in the contact history timeline.
+- **fix-notes:**
+- **files-changed:**
+
+### QA-AFF-011: Team members cannot be edited or deactivated after creation
+- **status:** pending
+- **severity:** medium
+- **reported:** 2026-03-09
+- **description:** `Team.jsx` only has an "Add Team Member" flow. Once a sub-affiliate is created, there is no way to edit their commission rate, deactivate them, or remove them. The sub-affiliate record is permanent.
+- **fix-notes:**
+- **files-changed:**
+
+### QA-AFF-012: No pagination on leads or referrals
+- **status:** pending
+- **severity:** medium
+- **reported:** 2026-03-09
+- **description:** `LeadTracker.jsx` line 90 and `Referrals.jsx` line 16 both fetch all records with no limit/offset. Works fine with <50 records, will degrade with 500+. No pagination UI exists.
+- **fix-notes:**
+- **files-changed:**
+
+### QA-AFF-013: Plaintext bank routing/account numbers in database
+- **status:** pending
+- **severity:** medium
+- **reported:** 2026-03-09
+- **description:** `App.jsx` DirectDepositSetup stores `routing_number` and `account_number` as plaintext in the `affiliates` table. Anyone with DB read access (service role key, Supabase dashboard) can see full bank details. SSN is properly truncated to last 4 digits, but bank info is not.
+- **fix-notes:**
+- **files-changed:**
