@@ -393,8 +393,8 @@ export default function Dashboard({ affiliate, onAffiliateUpdate }) {
         )}
       </div>
 
-      {/* W-9 Tax Form Section - Only show if not uploaded */}
-      {!affiliate.w9_uploaded_at && (
+      {/* W-9 Tax Form Section - Only show if not uploaded and not read-only */}
+      {!affiliate.w9_uploaded_at && onAffiliateUpdate && (
         <div style={{
           background: '#1a1a1a',
           borderRadius: '12px',

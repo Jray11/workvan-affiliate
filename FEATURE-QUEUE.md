@@ -74,19 +74,19 @@ Replace all `console.log` errors and `alert()` calls with a global toast notific
 ---
 
 ## Feature AFF-3: Loading Skeletons
-**Status:** pending
+**Status:** done
 **Priority:** 3
 
 ### Description
 Replace "Loading..." plain text with animated skeleton placeholders on all pages. Makes the app feel faster and more polished.
 
 ### Acceptance Criteria
-- [ ] Skeleton component with pulse animation
-- [ ] Dashboard: skeleton stat cards + referral link card
-- [ ] LeadTracker: skeleton lead cards
-- [ ] Referrals: skeleton table rows
-- [ ] Commissions: skeleton stat cards + month groups
-- [ ] Team: skeleton member cards
+- [x] Skeleton component with pulse animation
+- [x] Dashboard: skeleton stat cards + referral link card
+- [x] LeadTracker: skeleton lead cards
+- [x] Referrals: skeleton table rows
+- [x] Commissions: skeleton stat cards + month groups
+- [x] Team: skeleton member cards
 
 ### Notes
 - Keep it simple — gray pulsing rectangles matching the layout of real content

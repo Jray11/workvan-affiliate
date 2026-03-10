@@ -4,7 +4,7 @@ import { useToast } from '../ToastContext';
 import { Plus, Search, Edit2, Trash2, Phone, Mail, Building2, Calendar, TrendingUp, X, MessageSquare, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import { LeadsSkeleton } from '../Skeleton';
 
-export default function LeadTracker({ affiliate }) {
+export default function LeadTracker({ affiliate, readOnly }) {
   const toast = useToast();
   const [leads, setLeads] = useState([]);
   const [tiers, setTiers] = useState([]);
@@ -391,6 +391,7 @@ export default function LeadTracker({ affiliate }) {
             Track your sales pipeline
           </p>
         </div>
+        {!readOnly && (
         <button
           onClick={() => setShowAddModal(true)}
           style={{
@@ -410,6 +411,7 @@ export default function LeadTracker({ affiliate }) {
           <Plus size={18} />
           Add Lead
         </button>
+        )}
       </div>
 
       {/* Stats */}
@@ -535,6 +537,7 @@ export default function LeadTracker({ affiliate }) {
           <TrendingUp size={48} style={{ opacity: 0.3, marginBottom: '1rem' }} color="#888" />
           <h3 style={{ color: '#e0e0e0', fontSize: '1.25rem', marginBottom: '0.5rem' }}>No leads yet</h3>
           <p style={{ color: '#888', marginBottom: '1.5rem' }}>Start tracking your sales pipeline</p>
+          {!readOnly && (
           <button
             onClick={() => setShowAddModal(true)}
             style={{
@@ -549,6 +552,7 @@ export default function LeadTracker({ affiliate }) {
           >
             Add Your First Lead
           </button>
+          )}
         </div>
       ) : (
         <div style={{ display: 'grid', gap: '1rem' }}>
@@ -668,6 +672,7 @@ export default function LeadTracker({ affiliate }) {
                       {getTierName(lead.subscription_tier)} • {lead.user_count} {lead.user_count === 1 ? 'user' : 'users'}
                     </div>
 
+                    {!readOnly && (
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
                       <button
                         onClick={() => openContactModal(lead)}
@@ -720,6 +725,7 @@ export default function LeadTracker({ affiliate }) {
                         <Trash2 size={14} />
                       </button>
                     </div>
+                    )}
                   </div>
                 </div>
 

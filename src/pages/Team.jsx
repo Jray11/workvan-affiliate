@@ -4,7 +4,7 @@ import { useToast } from '../ToastContext';
 import { Users, UserPlus, TrendingUp, DollarSign, Building2, Plus, X } from 'lucide-react';
 import { TeamSkeleton } from '../Skeleton';
 
-export default function Team({ affiliate }) {
+export default function Team({ affiliate, readOnly }) {
   const toast = useToast();
   const [teamMembers, setTeamMembers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -153,24 +153,26 @@ export default function Team({ affiliate }) {
           </p>
         </div>
 
-        <button
-          onClick={() => setShowAddForm(true)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            padding: '0.75rem 1.25rem',
-            background: '#9b59b6',
-            border: 'none',
-            borderRadius: '8px',
-            color: '#fff',
-            fontWeight: '600',
-            cursor: 'pointer'
-          }}
-        >
-          <UserPlus size={18} />
-          Add Team Member
-        </button>
+        {!readOnly && (
+          <button
+            onClick={() => setShowAddForm(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '0.75rem 1.25rem',
+              background: '#9b59b6',
+              border: 'none',
+              borderRadius: '8px',
+              color: '#fff',
+              fontWeight: '600',
+              cursor: 'pointer'
+            }}
+          >
+            <UserPlus size={18} />
+            Add Team Member
+          </button>
+        )}
       </div>
 
       {/* Team Stats */}
@@ -358,7 +360,7 @@ export default function Team({ affiliate }) {
       )}
 
       {/* Add Member Modal */}
-      {showAddForm && (
+      {showAddForm && !readOnly && (
         <div style={{
           position: 'fixed',
           inset: 0,

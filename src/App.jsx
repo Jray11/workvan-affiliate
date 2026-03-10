@@ -19,6 +19,7 @@ export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isImpersonating, setIsImpersonating] = useState(false);
   const [setupToken, setSetupToken] = useState(null);
+  const [isReadOnly, setIsReadOnly] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -133,6 +134,37 @@ export default function App() {
     }
   };
 
+  const checkTerminationAccess = (affiliateData) => {
+    if (!affiliateData) {
+      setAffiliate(null);
+      return;
+    }
+
+    if (affiliateData.terminated_at) {
+      const expiresAt = affiliateData.access_expires_at ? new Date(affiliateData.access_expires_at) : null;
+      const now = new Date();
+
+      if (expiresAt && now > expiresAt) {
+        // Grace period expired — block access
+        setAffiliate(null);
+        toast.error('Your affiliate account access has expired.');
+        return;
+      }
+
+      // Within grace period — read-only access
+      setIsReadOnly(true);
+    }
+
+    // Also check portal_enabled (fixes QA-AFF-004)
+    if (!affiliateData.portal_enabled) {
+      setAffiliate(null);
+      toast.error('Portal access is not enabled for your account.');
+      return;
+    }
+
+    setAffiliate(affiliateData);
+  };
+
   const loadAffiliate = async (userId) => {
     try {
       // Get affiliate linked to this user
@@ -158,7 +190,7 @@ export default function App() {
             user_id: userId,
             affiliate_id: affiliateByEmail.id
           }]);
-          setAffiliate(affiliateByEmail);
+          checkTerminationAccess(affiliateByEmail);
         } else {
           // No affiliate found
           setAffiliate(null);
@@ -171,7 +203,7 @@ export default function App() {
           .eq('id', affiliateUser.affiliate_id)
           .single();
 
-        setAffiliate(affiliateData);
+        checkTerminationAccess(affiliateData);
       }
     } catch (error) {
       console.error('Error loading affiliate:', error);
@@ -341,15 +373,15 @@ export default function App() {
   const renderPage = () => {
     switch (currentPage) {
       case 'leads':
-        return <LeadTracker affiliate={affiliate} />;
+        return <LeadTracker affiliate={affiliate} readOnly={isReadOnly} />;
       case 'referrals':
         return <Referrals affiliate={affiliate} />;
       case 'commissions':
         return <Commissions affiliate={affiliate} />;
       case 'team':
-        return affiliate.can_recruit ? <Team affiliate={affiliate} /> : <Dashboard affiliate={affiliate} onAffiliateUpdate={setAffiliate} />;
+        return affiliate.can_recruit ? <Team affiliate={affiliate} readOnly={isReadOnly} /> : <Dashboard affiliate={affiliate} onAffiliateUpdate={isReadOnly ? undefined : setAffiliate} />;
       default:
-        return <Dashboard affiliate={affiliate} onAffiliateUpdate={setAffiliate} />;
+        return <Dashboard affiliate={affiliate} onAffiliateUpdate={isReadOnly ? undefined : setAffiliate} />;
     }
   };
 
@@ -643,6 +675,24 @@ export default function App() {
             >
               Exit View
             </button>
+          </div>
+        )}
+        {/* Terminated Banner */}
+        {isReadOnly && affiliate.terminated_at && (
+          <div style={{
+            background: 'linear-gradient(135deg, #e74c3c, #c0392b)',
+            color: '#fff',
+            padding: '0.75rem 1rem',
+            borderRadius: '8px',
+            marginBottom: '1.5rem',
+            fontSize: '0.9rem',
+            lineHeight: '1.5'
+          }}>
+            <strong>Your affiliate account was terminated on {new Date(affiliate.terminated_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}.</strong>
+            {affiliate.access_expires_at && (
+              <span> Portal access expires {new Date(affiliate.access_expires_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}.</span>
+            )}
+            <span> Your account is in read-only mode.</span>
           </div>
         )}
         {renderPage()}

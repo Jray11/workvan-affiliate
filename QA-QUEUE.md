@@ -68,12 +68,12 @@
 - **files-changed:**
 
 ### QA-AFF-007: No loading states — plain text "Loading..." on all pages
-- **status:** pending
+- **status:** done
 - **severity:** high
 - **reported:** 2026-03-09
 - **description:** All 5 pages show plain centered text ("Loading dashboard...", "Loading leads...", etc.) with no spinner or skeleton. On slow connections, users may think the page is frozen.
-- **fix-notes:**
-- **files-changed:**
+- **fix-notes:** Created `Skeleton.jsx` with page-specific skeleton components (DashboardSkeleton, LeadsSkeleton, ReferralsSkeleton, CommissionsSkeleton, TeamSkeleton). Each skeleton uses pulsing gray rectangles matching the real page layout. Wired into all 5 pages replacing plain text loading states.
+- **files-changed:** `src/Skeleton.jsx` (new), `src/pages/Dashboard.jsx`, `src/pages/LeadTracker.jsx`, `src/pages/Referrals.jsx`, `src/pages/Commissions.jsx`, `src/pages/Team.jsx`
 
 ### QA-AFF-008: Terms/payout DB updates have no try/catch
 - **status:** done
