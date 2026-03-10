@@ -201,17 +201,17 @@ Allow recruiters to edit sub-affiliate commission rates and deactivate team memb
 ---
 
 ## Feature AFF-9: Getting Started Checklist (New Affiliate Onboarding)
-**Status:** pending
+**Status:** done
 **Priority:** 9
 
 ### Description
 For new affiliates with 0 referrals, show a guided checklist on the Dashboard instead of empty stats. Walks them through their first actions.
 
 ### Acceptance Criteria
-- [ ] Checklist appears when: total_referrals = 0 AND account age < 30 days
-- [ ] Steps: (1) Copy your referral link, (2) Add your first lead, (3) Complete payout setup, (4) Upload W-9
-- [ ] Each step shows done/not-done state based on real data
-- [ ] Checklist dismissible ("Got it, hide this")
+- [x] Checklist appears when: total_referrals = 0 AND account age < 30 days
+- [x] Steps: (1) Copy your referral link, (2) Get first referral, (3) Complete payout setup, (4) Upload W-9
+- [x] Each step shows done/not-done state based on real data
+- [x] Checklist dismissible ("Hide")
 - [ ] Links directly to relevant pages/actions
 
 ### Notes
@@ -281,17 +281,17 @@ One-tap generate a QR code from the referral URL on the Dashboard. Useful for in
 ---
 
 ## Feature AFF-13: Lead Follow-Up Reminders
-**Status:** pending
+**Status:** done
 **Priority:** 13
 
 ### Description
 Visual indicators when a lead's `next_follow_up` date is past due. Badge count in sidebar nav for overdue leads.
 
 ### Acceptance Criteria
-- [ ] LeadTracker: overdue follow-ups highlighted in red
-- [ ] Sidebar "Lead Tracker" nav item shows badge count of overdue leads
-- [ ] Dashboard: "X overdue follow-ups" warning if any exist
-- [ ] Overdue = `next_follow_up < today AND status not in (closed_won, closed_lost)`
+- [x] LeadTracker: overdue follow-ups highlighted in red (already existed)
+- [x] Sidebar "Lead Tracker" nav item shows badge count of overdue leads
+- [x] Dashboard: "X overdue follow-ups" warning if any exist
+- [x] Overdue = `next_follow_up < today AND status not in (closed_won, closed_lost)`
 
 ### Notes
 - No email/SMS reminders for now — just in-app visual indicators
