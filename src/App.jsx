@@ -349,7 +349,7 @@ export default function App() {
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', maxWidth: '100vw', overflowX: 'hidden' }}>
       {/* Sidebar - Desktop */}
       <aside style={{
         width: '240px',
@@ -599,7 +599,10 @@ export default function App() {
         marginLeft: '240px',
         padding: '2rem',
         minHeight: '100vh',
-        background: '#0a0a0a'
+        background: '#0a0a0a',
+        maxWidth: '100vw',
+        boxSizing: 'border-box',
+        overflowX: 'hidden'
       }}>
         {/* Impersonation Banner */}
         {isImpersonating && (
