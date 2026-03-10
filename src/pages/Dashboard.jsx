@@ -18,6 +18,9 @@ export default function Dashboard({ affiliate, onAffiliateUpdate }) {
   const [copied, setCopied] = useState(false);
   const [w9Uploading, setW9Uploading] = useState(false);
   const [w9Error, setW9Error] = useState(null);
+  const [checklistDismissed, setChecklistDismissed] = useState(() => {
+    try { return localStorage.getItem('affiliate_checklist_dismissed') === 'true'; } catch { return false; }
+  });
 
   const REFERRAL_URL = `https://workvanapp.com?ref=${affiliate.code}`;
   const MINIMUM_PAYOUT = 50;
@@ -211,6 +214,77 @@ export default function Dashboard({ affiliate, onAffiliateUpdate }) {
           >
             Set Up Now
           </button>
+        </div>
+      )}
+
+      {/* Getting Started Checklist */}
+      {stats.totalReferrals === 0 && !checklistDismissed && (
+        <div style={{
+          background: '#1a1a1a',
+          borderRadius: '12px',
+          padding: '1.5rem',
+          border: '1px solid #2a2a2a',
+          marginBottom: '1.5rem'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h3 style={{ color: '#e0e0e0', fontWeight: '700', fontSize: '1.1rem' }}>
+              Getting Started
+            </h3>
+            <button
+              onClick={() => {
+                setChecklistDismissed(true);
+                try { localStorage.setItem('affiliate_checklist_dismissed', 'true'); } catch {}
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#666',
+                cursor: 'pointer',
+                fontSize: '0.8rem'
+              }}
+            >
+              Hide
+            </button>
+          </div>
+          {[
+            { done: true, label: 'Copy your referral link', sub: 'Share it with potential customers' },
+            { done: stats.totalReferrals > 0, label: 'Get your first referral', sub: 'When someone signs up with your link' },
+            { done: affiliate.payout_setup_complete, label: 'Complete payout setup', sub: 'Add bank details to receive commissions' },
+            { done: !!affiliate.w9_uploaded_at, label: 'Upload your W-9', sub: 'Required for tax reporting' }
+          ].map((step, i) => (
+            <div key={i} style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              padding: '0.6rem 0',
+              borderTop: i > 0 ? '1px solid #2a2a2a' : 'none'
+            }}>
+              <div style={{
+                width: '24px',
+                height: '24px',
+                borderRadius: '50%',
+                background: step.done ? '#4ecca320' : '#2a2a2a',
+                border: step.done ? '2px solid #4ecca3' : '2px solid #444',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}>
+                {step.done && <CheckCircle size={14} color="#4ecca3" />}
+              </div>
+              <div>
+                <div style={{
+                  color: step.done ? '#4ecca3' : '#e0e0e0',
+                  fontSize: '0.9rem',
+                  fontWeight: '600',
+                  textDecoration: step.done ? 'line-through' : 'none'
+                }}>
+                  {step.label}
+                </div>
+                <div style={{ color: '#666', fontSize: '0.8rem' }}>{step.sub}</div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
