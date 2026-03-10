@@ -19,6 +19,8 @@ export default function LeadTracker({ affiliate, readOnly }) {
   const [expandedLead, setExpandedLead] = useState(null);
   const [contactHistory, setContactHistory] = useState([]);
   const [submitting, setSubmitting] = useState(false);
+  const [leadPage, setLeadPage] = useState(1);
+  const LEADS_PER_PAGE = 20;
 
   const [formData, setFormData] = useState({
     company_name: '',
@@ -333,6 +335,9 @@ export default function LeadTracker({ affiliate, readOnly }) {
     return matchesSearch && matchesStatus && matchesPriority;
   });
 
+  const leadTotalPages = Math.ceil(filteredLeads.length / LEADS_PER_PAGE);
+  const paginatedLeads = filteredLeads.slice((leadPage - 1) * LEADS_PER_PAGE, leadPage * LEADS_PER_PAGE);
+
   // Calculate pipeline value based on affiliate's commission rate and tier pricing
   const calculatePipelineValue = () => {
     const activeLeads = leads.filter(l => !['closed_won', 'closed_lost'].includes(l.status));
@@ -512,7 +517,7 @@ export default function LeadTracker({ affiliate, readOnly }) {
               type="text"
               placeholder="Search leads..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => { setSearchTerm(e.target.value); setLeadPage(1); }}
               style={{
                 ...inputStyle,
                 paddingLeft: '2.25rem'
@@ -521,7 +526,7 @@ export default function LeadTracker({ affiliate, readOnly }) {
           </div>
           <select
             value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
+            onChange={(e) => { setFilterStatus(e.target.value); setLeadPage(1); }}
             style={{ ...inputStyle, cursor: 'pointer' }}
           >
             <option value="all">All Statuses</option>
@@ -531,7 +536,7 @@ export default function LeadTracker({ affiliate, readOnly }) {
           </select>
           <select
             value={filterPriority}
-            onChange={(e) => setFilterPriority(e.target.value)}
+            onChange={(e) => { setFilterPriority(e.target.value); setLeadPage(1); }}
             style={{ ...inputStyle, cursor: 'pointer' }}
           >
             <option value="all">All Priorities</option>
@@ -573,7 +578,7 @@ export default function LeadTracker({ affiliate, readOnly }) {
         </div>
       ) : (
         <div style={{ display: 'grid', gap: '1rem' }}>
-          {filteredLeads.map(lead => (
+          {paginatedLeads.map(lead => (
             <div
               key={lead.id}
               style={{
@@ -855,6 +860,53 @@ export default function LeadTracker({ affiliate, readOnly }) {
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {leadTotalPages > 1 && (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: '0.75rem',
+          marginTop: '1.5rem'
+        }}>
+          <button
+            onClick={() => setLeadPage(p => Math.max(1, p - 1))}
+            disabled={leadPage === 1}
+            style={{
+              padding: '0.5rem 1rem',
+              background: '#2a2a2a',
+              border: '1px solid #3a3a3a',
+              borderRadius: '8px',
+              color: leadPage === 1 ? '#555' : '#e0e0e0',
+              cursor: leadPage === 1 ? 'default' : 'pointer',
+              fontWeight: '600',
+              fontSize: '0.85rem'
+            }}
+          >
+            Prev
+          </button>
+          <span style={{ color: '#888', fontSize: '0.85rem' }}>
+            Page {leadPage} of {leadTotalPages}
+          </span>
+          <button
+            onClick={() => setLeadPage(p => Math.min(leadTotalPages, p + 1))}
+            disabled={leadPage === leadTotalPages}
+            style={{
+              padding: '0.5rem 1rem',
+              background: '#2a2a2a',
+              border: '1px solid #3a3a3a',
+              borderRadius: '8px',
+              color: leadPage === leadTotalPages ? '#555' : '#e0e0e0',
+              cursor: leadPage === leadTotalPages ? 'default' : 'pointer',
+              fontWeight: '600',
+              fontSize: '0.85rem'
+            }}
+          >
+            Next
+          </button>
         </div>
       )}
 

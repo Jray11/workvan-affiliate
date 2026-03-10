@@ -8,6 +8,8 @@ export default function Referrals({ affiliate }) {
   const toast = useToast();
   const [referrals, setReferrals] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refPage, setRefPage] = useState(1);
+  const REFS_PER_PAGE = 20;
 
   useEffect(() => {
     loadReferrals();
@@ -61,6 +63,9 @@ export default function Referrals({ affiliate }) {
         };
     }
   };
+
+  const refTotalPages = Math.ceil(referrals.length / REFS_PER_PAGE);
+  const paginatedRefs = referrals.slice((refPage - 1) * REFS_PER_PAGE, refPage * REFS_PER_PAGE);
 
   if (loading) {
     return <ReferralsSkeleton />;
@@ -163,7 +168,7 @@ export default function Referrals({ affiliate }) {
                 </tr>
               </thead>
               <tbody>
-                {referrals.map(referral => {
+                {paginatedRefs.map(referral => {
                   const status = getStatusBadge(referral.subscription_status);
                   const StatusIcon = status.icon;
 
@@ -214,6 +219,53 @@ export default function Referrals({ affiliate }) {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {refTotalPages > 1 && (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: '0.75rem',
+          marginTop: '1.5rem'
+        }}>
+          <button
+            onClick={() => setRefPage(p => Math.max(1, p - 1))}
+            disabled={refPage === 1}
+            style={{
+              padding: '0.5rem 1rem',
+              background: '#2a2a2a',
+              border: '1px solid #3a3a3a',
+              borderRadius: '8px',
+              color: refPage === 1 ? '#555' : '#e0e0e0',
+              cursor: refPage === 1 ? 'default' : 'pointer',
+              fontWeight: '600',
+              fontSize: '0.85rem'
+            }}
+          >
+            Prev
+          </button>
+          <span style={{ color: '#888', fontSize: '0.85rem' }}>
+            Page {refPage} of {refTotalPages}
+          </span>
+          <button
+            onClick={() => setRefPage(p => Math.min(refTotalPages, p + 1))}
+            disabled={refPage === refTotalPages}
+            style={{
+              padding: '0.5rem 1rem',
+              background: '#2a2a2a',
+              border: '1px solid #3a3a3a',
+              borderRadius: '8px',
+              color: refPage === refTotalPages ? '#555' : '#e0e0e0',
+              cursor: refPage === refTotalPages ? 'default' : 'pointer',
+              fontWeight: '600',
+              fontSize: '0.85rem'
+            }}
+          >
+            Next
+          </button>
         </div>
       )}
     </div>
