@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabase';
+import { useToast } from './ToastContext';
 import Login from './pages/Login';
 import SetPassword from './pages/SetPassword';
 import Dashboard from './pages/Dashboard';
@@ -10,6 +11,7 @@ import LeadTracker from './pages/LeadTracker';
 import { LayoutDashboard, Users, DollarSign, UserPlus, LogOut, Menu, X, FileText, CheckCircle, Banknote, Building, Upload, TrendingUp } from 'lucide-react';
 
 export default function App() {
+  const toast = useToast();
   const [session, setSession] = useState(null);
   const [affiliate, setAffiliate] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -90,9 +92,7 @@ export default function App() {
     try {
       // Decode the token: admin:affiliateId:timestamp
       const decoded = atob(token);
-      console.log('Decoded token:', decoded);
       const [prefix, affiliateId, timestamp] = decoded.split(':');
-      console.log('Token parts:', { prefix, affiliateId, timestamp });
 
       // Validate token (must be admin and less than 24 hours old)
       if (prefix !== 'admin') {
@@ -100,20 +100,16 @@ export default function App() {
       }
 
       const tokenAge = Date.now() - parseInt(timestamp);
-      console.log('Token age (ms):', tokenAge);
       if (tokenAge > 24 * 60 * 60 * 1000) {
         throw new Error('Token expired');
       }
 
       // Load the affiliate directly
-      console.log('Fetching affiliate:', affiliateId);
       const { data: affiliateData, error } = await supabase
         .from('affiliates')
         .select('*')
         .eq('id', affiliateId)
         .single();
-
-      console.log('Supabase response:', { affiliateData, error });
 
       if (error) {
         throw new Error('Supabase error: ' + error.message);
@@ -131,7 +127,7 @@ export default function App() {
       window.history.replaceState({}, document.title, window.location.pathname);
     } catch (error) {
       console.error('Impersonation failed:', error);
-      alert('Impersonation failed: ' + error.message);
+      toast.error('Impersonation failed: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -277,13 +273,16 @@ export default function App() {
   // Skip for impersonation (admins viewing as affiliate)
   if (!isImpersonating && !affiliate.agreed_to_terms_at) {
     return <TermsAcceptance affiliate={affiliate} onAccept={async () => {
-      const { error } = await supabase
-        .from('affiliates')
-        .update({ agreed_to_terms_at: new Date().toISOString() })
-        .eq('id', affiliate.id);
+      try {
+        const { error } = await supabase
+          .from('affiliates')
+          .update({ agreed_to_terms_at: new Date().toISOString() })
+          .eq('id', affiliate.id);
 
-      if (!error) {
+        if (error) throw error;
         setAffiliate({ ...affiliate, agreed_to_terms_at: new Date().toISOString() });
+      } catch (err) {
+        toast.error('Failed to save terms acceptance. Please try again.');
       }
     }} onLogout={handleLogout} />;
   }
@@ -292,32 +291,38 @@ export default function App() {
   // Skip for impersonation (admins viewing as affiliate)
   if (!isImpersonating && !affiliate.payout_setup_complete) {
     return <DirectDepositSetup affiliate={affiliate} onComplete={async (payoutData) => {
-      const { error } = await supabase
-        .from('affiliates')
-        .update({
-          bank_name: payoutData.bankName,
-          routing_number: payoutData.routingNumber,
-          account_number: payoutData.accountNumber,
-          account_type: payoutData.accountType,
-          account_holder_name: payoutData.accountHolderName,
-          tax_id_type: payoutData.taxIdType,
-          tax_id_last4: payoutData.taxIdLast4,
-          payout_setup_complete: true
-        })
-        .eq('id', affiliate.id);
+      try {
+        const { error } = await supabase
+          .from('affiliates')
+          .update({
+            bank_name: payoutData.bankName,
+            routing_number: payoutData.routingNumber,
+            account_number: payoutData.accountNumber,
+            account_type: payoutData.accountType,
+            account_holder_name: payoutData.accountHolderName,
+            tax_id_type: payoutData.taxIdType,
+            tax_id_last4: payoutData.taxIdLast4,
+            payout_setup_complete: true
+          })
+          .eq('id', affiliate.id);
 
-      if (!error) {
+        if (error) throw error;
         setAffiliate({ ...affiliate, payout_setup_complete: true });
+        toast.success('Payout information saved successfully');
+      } catch (err) {
+        toast.error('Failed to save payout information. Please try again.');
       }
     }} onSkip={async () => {
-      // Allow skipping for now, they can set it up later
-      const { error } = await supabase
-        .from('affiliates')
-        .update({ payout_setup_complete: true })
-        .eq('id', affiliate.id);
+      try {
+        const { error } = await supabase
+          .from('affiliates')
+          .update({ payout_setup_complete: true })
+          .eq('id', affiliate.id);
 
-      if (!error) {
+        if (error) throw error;
         setAffiliate({ ...affiliate, payout_setup_complete: true });
+      } catch (err) {
+        toast.error('Something went wrong. Please try again.');
       }
     }} onLogout={handleLogout} />;
   }

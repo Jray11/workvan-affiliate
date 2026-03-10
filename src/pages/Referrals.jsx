@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
+import { useToast } from '../ToastContext';
 import { Building2, CheckCircle, Clock, XCircle } from 'lucide-react';
 
 export default function Referrals({ affiliate }) {
+  const toast = useToast();
   const [referrals, setReferrals] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -19,6 +21,7 @@ export default function Referrals({ affiliate }) {
       setReferrals(stats?.companies || []);
     } catch (error) {
       console.error('Error loading referrals:', error);
+      toast.error('Failed to load referrals');
     } finally {
       setLoading(false);
     }

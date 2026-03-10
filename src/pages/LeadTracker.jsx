@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
+import { useToast } from '../ToastContext';
 import { Plus, Search, Edit2, Trash2, Phone, Mail, Building2, Calendar, TrendingUp, X, MessageSquare, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 
 export default function LeadTracker({ affiliate }) {
+  const toast = useToast();
   const [leads, setLeads] = useState([]);
   const [tiers, setTiers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -97,6 +99,7 @@ export default function LeadTracker({ affiliate }) {
       setLeads(data || []);
     } catch (error) {
       console.error('Error fetching leads:', error);
+      toast.error('Failed to load leads');
     } finally {
       setLoading(false);
     }
@@ -145,9 +148,10 @@ export default function LeadTracker({ affiliate }) {
       setLeads([data, ...leads]);
       setShowAddModal(false);
       resetForm();
+      toast.success('Lead added');
     } catch (error) {
       console.error('Error adding lead:', error);
-      alert('Failed to add lead: ' + error.message);
+      toast.error('Failed to add lead: ' + error.message);
     }
   };
 
@@ -180,9 +184,10 @@ export default function LeadTracker({ affiliate }) {
       setShowEditModal(false);
       setSelectedLead(null);
       resetForm();
+      toast.success('Lead updated');
     } catch (error) {
       console.error('Error updating lead:', error);
-      alert('Failed to update lead: ' + error.message);
+      toast.error('Failed to update lead: ' + error.message);
     }
   };
 
@@ -198,9 +203,10 @@ export default function LeadTracker({ affiliate }) {
       if (error) throw error;
 
       setLeads(leads.filter(l => l.id !== id));
+      toast.success('Lead deleted');
     } catch (error) {
       console.error('Error deleting lead:', error);
-      alert('Failed to delete lead: ' + error.message);
+      toast.error('Failed to delete lead: ' + error.message);
     }
   };
 
@@ -239,9 +245,10 @@ export default function LeadTracker({ affiliate }) {
 
       setShowContactModal(false);
       setContactForm({ contact_type: 'call', notes: '', outcome: '' });
+      toast.success('Contact logged');
     } catch (error) {
       console.error('Error logging contact:', error);
-      alert('Failed to log contact: ' + error.message);
+      toast.error('Failed to log contact: ' + error.message);
     }
   };
 

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
+import { useToast } from '../ToastContext';
 import { DollarSign, CheckCircle, Clock, Calendar } from 'lucide-react';
 
 export default function Commissions({ affiliate }) {
+  const toast = useToast();
   const [commissions, setCommissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all'); // 'all', 'owed', 'paid'
@@ -25,6 +27,7 @@ export default function Commissions({ affiliate }) {
       setCommissions(data || []);
     } catch (error) {
       console.error('Error loading commissions:', error);
+      toast.error('Failed to load commissions');
     } finally {
       setLoading(false);
     }

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
+import { useToast } from '../ToastContext';
 import { Users, DollarSign, TrendingUp, Copy, Check, ExternalLink, FileText, Upload, CheckCircle, AlertCircle } from 'lucide-react';
 
 export default function Dashboard({ affiliate, onAffiliateUpdate }) {
+  const toast = useToast();
   const [stats, setStats] = useState({
     totalReferrals: 0,
     activeReferrals: 0,
@@ -64,15 +66,21 @@ export default function Dashboard({ affiliate, onAffiliateUpdate }) {
       });
     } catch (error) {
       console.error('Error loading stats:', error);
+      toast.error('Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
   };
 
   const copyReferralLink = () => {
-    navigator.clipboard.writeText(REFERRAL_URL);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      navigator.clipboard.writeText(REFERRAL_URL);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast.success('Referral link copied to clipboard');
+    } catch (err) {
+      toast.error('Failed to copy link');
+    }
   };
 
   const handleW9Upload = async (e) => {
@@ -125,9 +133,11 @@ export default function Dashboard({ affiliate, onAffiliateUpdate }) {
           w9_uploaded_at: new Date().toISOString()
         });
       }
+      toast.success('W-9 uploaded successfully');
     } catch (error) {
       console.error('W-9 upload error:', error);
       setW9Error('Failed to upload W-9. Please try again.');
+      toast.error('W-9 upload failed');
     } finally {
       setW9Uploading(false);
     }

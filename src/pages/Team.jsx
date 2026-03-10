@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
+import { useToast } from '../ToastContext';
 import { Users, UserPlus, TrendingUp, DollarSign, Building2, Plus, X } from 'lucide-react';
 
 export default function Team({ affiliate }) {
+  const toast = useToast();
   const [teamMembers, setTeamMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -64,6 +66,7 @@ export default function Team({ affiliate }) {
       setTeamMembers(membersWithStats);
     } catch (error) {
       console.error('Error loading team:', error);
+      toast.error('Failed to load team data');
     } finally {
       setLoading(false);
     }
@@ -99,8 +102,9 @@ export default function Team({ affiliate }) {
       setShowAddForm(false);
       setNewMember({ name: '', email: '', phone: '', code: '', commission_model: 'fixed', commission_rate: '5.00' });
       loadTeam();
+      toast.success('Team member added');
     } catch (error) {
-      alert('Error adding team member: ' + error.message);
+      toast.error('Failed to add team member: ' + error.message);
     } finally {
       setSaving(false);
     }
