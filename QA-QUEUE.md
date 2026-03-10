@@ -28,9 +28,9 @@
 - **files-changed:** `src/App.jsx`
 
 ### QA-AFF-002: Vercel auto-deploy not connected to GitHub
-- **status:** pending
+- **status:** done
 - **severity:** high
 - **reported:** 2026-03-09
 - **description:** `git push` to master does NOT trigger Vercel deploys. Last auto-deploy was 44+ days ago. Must use `npx vercel --prod` manually. This means code changes aren't going live unless someone remembers to manually deploy.
-- **fix-notes:** Needs Vercel project settings updated to connect GitHub repo (Jray11/workvan-affiliate) for auto-deploy on push to master.
-- **files-changed:** N/A — Vercel dashboard config issue
+- **fix-notes:** Ran `npx vercel git connect` to link GitHub repo. First auto-deploy failed due to corrupted build cache (permission denied on vite binary). Cleared cache with `npx vercel --prod --force`. Auto-deploy now working — verifying with test push.
+- **files-changed:** N/A — Vercel CLI config
