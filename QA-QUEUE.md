@@ -108,17 +108,17 @@
 - **files-changed:** `src/pages/Team.jsx`
 
 ### QA-AFF-012: No pagination on leads or referrals
-- **status:** pending
+- **status:** done
 - **severity:** medium
 - **reported:** 2026-03-09
 - **description:** `LeadTracker.jsx` line 90 and `Referrals.jsx` line 16 both fetch all records with no limit/offset. Works fine with <50 records, will degrade with 500+. No pagination UI exists.
-- **fix-notes:**
-- **files-changed:**
+- **fix-notes:** Added client-side pagination (20 items/page) with Prev/Next controls to both LeadTracker and Referrals. Resets to page 1 on filter/search changes.
+- **files-changed:** `src/pages/LeadTracker.jsx`, `src/pages/Referrals.jsx`
 
 ### QA-AFF-013: Plaintext bank routing/account numbers in database
-- **status:** pending
+- **status:** done
 - **severity:** medium
 - **reported:** 2026-03-09
 - **description:** `App.jsx` DirectDepositSetup stores `routing_number` and `account_number` as plaintext in the `affiliates` table. Anyone with DB read access (service role key, Supabase dashboard) can see full bank details. SSN is properly truncated to last 4 digits, but bank info is not.
-- **fix-notes:**
-- **files-changed:**
+- **fix-notes:** Migrated existing data to `routing_number_last4` and `account_number_last4` columns, then dropped the full plaintext columns. Portal now only stores last 4 digits. Full bank details entered directly in Ramp for payouts.
+- **files-changed:** `src/App.jsx` + DB migration

@@ -221,7 +221,7 @@ For new affiliates with 0 referrals, show a guided checklist on the Dashboard in
 ---
 
 ## Feature AFF-10: Lead Pipeline Board View (Kanban)
-**Status:** pending
+**Status:** done
 **Priority:** 10
 
 ### Description
@@ -242,7 +242,7 @@ Add a kanban-style board view as an alternative to the LeadTracker list view. Co
 ---
 
 ## Feature AFF-11: Commission Export (CSV/PDF)
-**Status:** pending
+**Status:** done
 **Priority:** 11
 
 ### Description
@@ -262,7 +262,7 @@ Allow affiliates to export their commission history for tax filing and record-ke
 ---
 
 ## Feature AFF-12: Referral Link QR Code
-**Status:** pending
+**Status:** done
 **Priority:** 12
 
 ### Description
