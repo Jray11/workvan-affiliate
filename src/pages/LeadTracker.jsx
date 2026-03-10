@@ -834,7 +834,7 @@ export default function LeadTracker({ affiliate, readOnly }) {
                               {contact.contact_type}
                             </span>
                             <span style={{ fontSize: '0.75rem', color: '#666' }}>
-                              {new Date(contact.contacted_at).toLocaleString()}
+                              {contact.contacted_at ? new Date(contact.contacted_at).toLocaleString() : 'Date not recorded'}
                             </span>
                           </div>
                           {contact.notes && (

@@ -95,18 +95,18 @@ Replace "Loading..." plain text with animated skeleton placeholders on all pages
 ---
 
 ## Feature AFF-4: Terminated/Cancelled Affiliate Access Window
-**Status:** pending
+**Status:** done
 **Priority:** 4
 
 ### Description
 When an affiliate is terminated or cancelled, they should retain read-only portal access for a grace period (e.g., 90 days) so they can view final commissions, download tax docs, etc. After the grace period, access is fully revoked.
 
 ### Acceptance Criteria
-- [ ] New DB columns: `terminated_at` (timestamp), `access_expires_at` (timestamp) on `affiliates` table
-- [ ] Login checks: if `terminated_at` is set AND `access_expires_at` is past → block login
-- [ ] If `terminated_at` is set but within grace period → allow login, show "read-only" banner
-- [ ] Read-only mode: disable add/edit/delete on LeadTracker, disable Team add member, disable W-9 upload
-- [ ] Dashboard shows "Your affiliate account was terminated on [date]. Portal access expires [date]."
+- [x] New DB columns: `terminated_at` (timestamp), `access_expires_at` (timestamp) on `affiliates` table
+- [x] Login checks: if `terminated_at` is set AND `access_expires_at` is past → block login
+- [x] If `terminated_at` is set but within grace period → allow login, show "read-only" banner
+- [x] Read-only mode: disable add/edit/delete on LeadTracker, disable Team add member, disable W-9 upload
+- [x] Dashboard shows "Your affiliate account was terminated on [date]. Portal access expires [date]."
 - [ ] Internal app (CompanyViewer/Affiliates page) can set termination with configurable grace period
 
 ### Notes
@@ -117,19 +117,19 @@ When an affiliate is terminated or cancelled, they should retain read-only porta
 ---
 
 ## Feature AFF-5: Minimum Payout Threshold
-**Status:** pending
+**Status:** done
 **Priority:** 5
 
 ### Description
 Introduce a minimum threshold (e.g., $50) that must be met before commissions are paid out. Owed amounts below the threshold roll over to the next period. Prevents tiny ACH transfers that cost more to process than they're worth.
 
 ### Acceptance Criteria
-- [ ] Configurable threshold (default $50, stored in DB or app config)
-- [ ] Commissions page shows "Minimum payout: $50" near the pending amount
-- [ ] If pending < threshold, show message: "$XX.XX owed — rolls over to next period ($50 minimum)"
-- [ ] If pending >= threshold, show: "$XX.XX ready for payout"
+- [x] Configurable threshold (default $50, stored in DB or app config)
+- [x] Commissions page shows "Minimum payout: $50" near the pending amount
+- [x] If pending < threshold, show message: "$XX.XX owed — rolls over to next period ($50 minimum)"
+- [x] If pending >= threshold, show: "$XX.XX ready for payout"
 - [ ] Payout report (AFF-6) respects threshold — only includes affiliates at or above minimum
-- [ ] Dashboard "Pending Payout" card shows threshold context
+- [x] Dashboard "Pending Payout" card shows threshold context
 
 ### Notes
 - Threshold applies per payout cycle (monthly), not per commission

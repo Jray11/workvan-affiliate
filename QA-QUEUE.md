@@ -44,20 +44,20 @@
 - **files-changed:** `src/pages/LeadTracker.jsx`
 
 ### QA-AFF-004: Disabled affiliate can still log in and access portal
-- **status:** pending
+- **status:** done
 - **severity:** critical
 - **reported:** 2026-03-09
 - **description:** `portal_enabled` is only checked during password reset flow (`Login.jsx` line 49). A disabled/terminated affiliate can still sign in with email+password and access the full portal. No re-validation happens after initial login either — if an affiliate is disabled mid-session, they continue with full access until they log out.
-- **fix-notes:**
-- **files-changed:**
+- **fix-notes:** Added `portal_enabled` check in `checkTerminationAccess()` in App.jsx. Now checked every time an affiliate is loaded (login, session restore, auth state change). Also added terminated_at/access_expires_at grace period system as part of AFF-4.
+- **files-changed:** `src/App.jsx`
 
 ### QA-AFF-005: "Skip" payout setup marks affiliate as complete
-- **status:** pending
+- **status:** done
 - **severity:** critical
 - **reported:** 2026-03-09
 - **description:** The "Skip for now" button in DirectDepositSetup (`App.jsx` line 312) sets `payout_setup_complete: true` without any bank info. The commission/payout system has no way to distinguish "completed setup" from "skipped setup." When payout time comes, there's no bank info to pay to.
-- **fix-notes:**
-- **files-changed:**
+- **fix-notes:** Added `payout_setup_skipped` column to affiliates table. Skip now sets `payout_setup_skipped: true` (not `payout_setup_complete`). Gate condition updated to allow skipped affiliates through. Dashboard shows reminder banner with "Set Up Now" button.
+- **files-changed:** `src/App.jsx`, `src/pages/Dashboard.jsx`
 
 ### QA-AFF-006: No error feedback on any page — all errors go to console.log
 - **status:** done
@@ -84,20 +84,20 @@
 - **files-changed:**
 
 ### QA-AFF-009: Double-submit on all forms — buttons not disabled during submission
-- **status:** pending
+- **status:** done
 - **severity:** high
 - **reported:** 2026-03-09
 - **description:** LeadTracker add/edit/log-contact forms and Team add-member form don't disable the submit button while the request is in-flight. Clicking multiple times creates duplicate records. Affects: `LeadTracker.jsx` lines 883, 1086, 1301 and `Team.jsx` line 103.
-- **fix-notes:**
-- **files-changed:**
+- **fix-notes:** Added `submitting` state to LeadTracker with early-return guards and disabled buttons during submission (add, edit, delete, log contact). Team already had `saving` state with the same pattern.
+- **files-changed:** `src/pages/LeadTracker.jsx`
 
 ### QA-AFF-010: LeadTracker contact history shows "Invalid Date"
-- **status:** pending
+- **status:** done
 - **severity:** medium
 - **reported:** 2026-03-09
 - **description:** `LeadTracker.jsx` line 814: `new Date(contact.contacted_at).toLocaleString()` — if `contacted_at` is null (DB default not set or insert didn't include it), renders "Invalid Date" in the contact history timeline.
-- **fix-notes:**
-- **files-changed:**
+- **fix-notes:** Added null check: shows "Date not recorded" when `contacted_at` is null.
+- **files-changed:** `src/pages/LeadTracker.jsx`
 
 ### QA-AFF-011: Team members cannot be edited or deactivated after creation
 - **status:** pending
