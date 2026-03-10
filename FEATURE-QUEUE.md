@@ -162,17 +162,17 @@ Generate a monthly payout report that can be used to process payments in Ramp. T
 ---
 
 ## Feature AFF-7: Commission Detail View
-**Status:** pending
+**Status:** done
 **Priority:** 7
 
 ### Description
 Click a commission row to see which referred company generated it, what plan they're on, and the calculation breakdown. Currently commissions are just a dollar amount with no context.
 
 ### Acceptance Criteria
-- [ ] Clickable/expandable commission rows on Commissions page
-- [ ] Detail shows: company name, subscription plan, monthly revenue, commission rate, calculated amount
+- [x] Clickable/expandable commission rows on Commissions page
+- [x] Detail shows: company name, subscription plan, monthly revenue, commission rate, calculated amount
 - [ ] For recruiters: show override calculation (sub-affiliate name, their commission, override rate, override amount)
-- [ ] Detail panel or modal, consistent with app style
+- [x] Detail panel or modal, consistent with app style
 
 ### Notes
 - May require joining `affiliate_commissions` with `companies` and `subscription_tiers`
@@ -181,17 +181,17 @@ Click a commission row to see which referred company generated it, what plan the
 ---
 
 ## Feature AFF-8: Team Member Management (Edit/Deactivate)
-**Status:** pending
+**Status:** done
 **Priority:** 8
 
 ### Description
 Allow recruiters to edit sub-affiliate commission rates and deactivate team members. Currently, sub-affiliates can only be created — no modifications possible after creation.
 
 ### Acceptance Criteria
-- [ ] Edit button on each team member card
-- [ ] Editable fields: commission_model, commission_rate, active status
-- [ ] Deactivate toggle with confirmation: "Deactivate [name]? They will lose portal access."
-- [ ] Deactivated members shown in separate "Inactive" section (greyed out)
+- [x] Edit button on each team member card
+- [x] Editable fields: commission_model, commission_rate, active status
+- [x] Deactivate toggle with confirmation: "Deactivate [name]? They will lose portal access."
+- [x] Deactivated members shown in separate "Inactive" section (greyed out)
 - [ ] Audit trail: `updated_at`, `updated_by` on affiliate record
 
 ### Notes

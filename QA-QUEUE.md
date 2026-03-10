@@ -100,12 +100,12 @@
 - **files-changed:** `src/pages/LeadTracker.jsx`
 
 ### QA-AFF-011: Team members cannot be edited or deactivated after creation
-- **status:** pending
+- **status:** done
 - **severity:** medium
 - **reported:** 2026-03-09
 - **description:** `Team.jsx` only has an "Add Team Member" flow. Once a sub-affiliate is created, there is no way to edit their commission rate, deactivate them, or remove them. The sub-affiliate record is permanent.
-- **fix-notes:**
-- **files-changed:**
+- **fix-notes:** Added edit modal (commission model/rate) and deactivate/reactivate toggle. Deactivation sets terminated_at with 90-day grace period. Inactive members shown in separate greyed section. Part of AFF-8.
+- **files-changed:** `src/pages/Team.jsx`
 
 ### QA-AFF-012: No pagination on leads or referrals
 - **status:** pending
