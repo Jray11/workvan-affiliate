@@ -20,6 +20,7 @@ export default function App() {
   const [isImpersonating, setIsImpersonating] = useState(false);
   const [setupToken, setSetupToken] = useState(null);
   const [isReadOnly, setIsReadOnly] = useState(false);
+  const [overdueLeads, setOverdueLeads] = useState(0);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -134,6 +135,19 @@ export default function App() {
     }
   };
 
+  const loadOverdueLeads = async (affiliateId) => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const { count } = await supabase
+        .from('affiliate_leads')
+        .select('id', { count: 'exact', head: true })
+        .eq('affiliate_id', affiliateId)
+        .lt('next_follow_up', today)
+        .not('status', 'in', '("closed_won","closed_lost")');
+      setOverdueLeads(count || 0);
+    } catch {}
+  };
+
   const checkTerminationAccess = (affiliateData) => {
     if (!affiliateData) {
       setAffiliate(null);
@@ -163,6 +177,7 @@ export default function App() {
     }
 
     setAffiliate(affiliateData);
+    loadOverdueLeads(affiliateData.id);
   };
 
   const loadAffiliate = async (userId) => {
@@ -381,9 +396,9 @@ export default function App() {
       case 'commissions':
         return <Commissions affiliate={affiliate} />;
       case 'team':
-        return affiliate.can_recruit ? <Team affiliate={affiliate} readOnly={isReadOnly} /> : <Dashboard affiliate={affiliate} onAffiliateUpdate={isReadOnly ? undefined : setAffiliate} />;
+        return affiliate.can_recruit ? <Team affiliate={affiliate} readOnly={isReadOnly} /> : <Dashboard affiliate={affiliate} onAffiliateUpdate={isReadOnly ? undefined : setAffiliate} overdueLeads={overdueLeads} />;
       default:
-        return <Dashboard affiliate={affiliate} onAffiliateUpdate={isReadOnly ? undefined : setAffiliate} />;
+        return <Dashboard affiliate={affiliate} onAffiliateUpdate={isReadOnly ? undefined : setAffiliate} overdueLeads={overdueLeads} />;
     }
   };
 
@@ -487,6 +502,21 @@ export default function App() {
             >
               <item.icon size={18} />
               {item.label}
+              {item.id === 'leads' && overdueLeads > 0 && (
+                <span style={{
+                  marginLeft: 'auto',
+                  background: '#e74c3c',
+                  color: '#fff',
+                  fontSize: '0.7rem',
+                  fontWeight: '700',
+                  padding: '0.15rem 0.45rem',
+                  borderRadius: '10px',
+                  minWidth: '18px',
+                  textAlign: 'center'
+                }}>
+                  {overdueLeads}
+                </span>
+              )}
             </button>
           ))}
         </nav>
@@ -606,6 +636,21 @@ export default function App() {
             >
               <item.icon size={20} />
               {item.label}
+              {item.id === 'leads' && overdueLeads > 0 && (
+                <span style={{
+                  marginLeft: 'auto',
+                  background: '#e74c3c',
+                  color: '#fff',
+                  fontSize: '0.7rem',
+                  fontWeight: '700',
+                  padding: '0.15rem 0.45rem',
+                  borderRadius: '10px',
+                  minWidth: '18px',
+                  textAlign: 'center'
+                }}>
+                  {overdueLeads}
+                </span>
+              )}
             </button>
           ))}
 

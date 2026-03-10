@@ -4,7 +4,7 @@ import { useToast } from '../ToastContext';
 import { Users, DollarSign, TrendingUp, Copy, Check, ExternalLink, FileText, Upload, CheckCircle, AlertCircle } from 'lucide-react';
 import { DashboardSkeleton } from '../Skeleton';
 
-export default function Dashboard({ affiliate, onAffiliateUpdate }) {
+export default function Dashboard({ affiliate, onAffiliateUpdate, overdueLeads = 0 }) {
   const toast = useToast();
   const [stats, setStats] = useState({
     totalReferrals: 0,
@@ -214,6 +214,26 @@ export default function Dashboard({ affiliate, onAffiliateUpdate }) {
           >
             Set Up Now
           </button>
+        </div>
+      )}
+
+      {/* Overdue Follow-ups Warning */}
+      {overdueLeads > 0 && (
+        <div style={{
+          background: '#e74c3c15',
+          border: '1px solid #e74c3c40',
+          borderRadius: '10px',
+          padding: '0.75rem 1.25rem',
+          marginBottom: '1.5rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75rem',
+          color: '#e74c3c',
+          fontSize: '0.9rem',
+          fontWeight: '600'
+        }}>
+          <AlertCircle size={18} />
+          {overdueLeads} overdue follow-up{overdueLeads !== 1 ? 's' : ''} in your pipeline
         </div>
       )}
 
