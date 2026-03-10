@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { useToast } from '../ToastContext';
-import { Users, DollarSign, TrendingUp, Copy, Check, ExternalLink, FileText, Upload, CheckCircle, AlertCircle } from 'lucide-react';
+import { Users, DollarSign, TrendingUp, Copy, Check, ExternalLink, FileText, Upload, CheckCircle, AlertCircle, QrCode, X as XIcon, Download } from 'lucide-react';
 import { DashboardSkeleton } from '../Skeleton';
 
 export default function Dashboard({ affiliate, onAffiliateUpdate, overdueLeads = 0 }) {
@@ -18,6 +18,7 @@ export default function Dashboard({ affiliate, onAffiliateUpdate, overdueLeads =
   const [copied, setCopied] = useState(false);
   const [w9Uploading, setW9Uploading] = useState(false);
   const [w9Error, setW9Error] = useState(null);
+  const [showQR, setShowQR] = useState(false);
   const [checklistDismissed, setChecklistDismissed] = useState(() => {
     try { return localStorage.getItem('affiliate_checklist_dismissed') === 'true'; } catch { return false; }
   });
@@ -356,6 +357,22 @@ export default function Dashboard({ affiliate, onAffiliateUpdate, overdueLeads =
             {copied ? <Check size={18} /> : <Copy size={18} />}
             {copied ? 'Copied!' : 'Copy'}
           </button>
+          <button
+            onClick={() => setShowQR(true)}
+            style={{
+              padding: '0.75rem',
+              background: 'rgba(255,255,255,0.2)',
+              border: 'none',
+              borderRadius: '8px',
+              color: '#fff',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center'
+            }}
+            title="QR Code"
+          >
+            <QrCode size={18} />
+          </button>
         </div>
         <div style={{
           marginTop: '1rem',
@@ -643,6 +660,75 @@ export default function Dashboard({ affiliate, onAffiliateUpdate, overdueLeads =
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* QR Code Modal */}
+      {showQR && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.85)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '1rem'
+        }}>
+          <div style={{
+            background: '#1a1a1a',
+            borderRadius: '12px',
+            padding: '2rem',
+            maxWidth: '360px',
+            width: '100%',
+            border: '1px solid #3a3a3a',
+            textAlign: 'center'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h3 style={{ color: '#e0e0e0', fontWeight: '700' }}>Your QR Code</h3>
+              <button onClick={() => setShowQR(false)} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer' }}>
+                <XIcon size={20} />
+              </button>
+            </div>
+            <div style={{
+              background: '#fff',
+              borderRadius: '12px',
+              padding: '1rem',
+              display: 'inline-block',
+              marginBottom: '1rem'
+            }}>
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(REFERRAL_URL)}&color=ff6b35`}
+                alt="Referral QR Code"
+                width={250}
+                height={250}
+                style={{ display: 'block' }}
+              />
+            </div>
+            <p style={{ color: '#888', fontSize: '0.85rem', marginBottom: '1rem' }}>
+              Scan to open your referral link
+            </p>
+            <a
+              href={`https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(REFERRAL_URL)}&color=ff6b35&format=png`}
+              download={`workvan-qr-${affiliate.code}.png`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.6rem 1.25rem',
+                background: '#ff6b35',
+                border: 'none',
+                borderRadius: '8px',
+                color: '#fff',
+                fontWeight: '600',
+                textDecoration: 'none',
+                fontSize: '0.85rem'
+              }}
+            >
+              <Download size={16} />
+              Download PNG
+            </a>
           </div>
         </div>
       )}

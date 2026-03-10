@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { useToast } from '../ToastContext';
-import { DollarSign, CheckCircle, Clock, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
+import { DollarSign, CheckCircle, Clock, Calendar, ChevronDown, ChevronUp, Download } from 'lucide-react';
 import { CommissionsSkeleton } from '../Skeleton';
 
 export default function Commissions({ affiliate }) {
@@ -66,23 +66,71 @@ export default function Commissions({ affiliate }) {
     groupedByMonth[month].push(comm);
   });
 
+  const exportCSV = () => {
+    if (filteredCommissions.length === 0) return;
+    const rows = [['Period', 'Company', 'Revenue', 'Commission', 'Status', 'Paid Date']];
+    filteredCommissions.forEach(c => {
+      rows.push([
+        formatMonth(c.period_month),
+        c.companies?.name || 'Account',
+        c.company_revenue || '',
+        c.commission_amount,
+        c.status === 'paid' ? 'Paid' : 'Pending',
+        c.paid_at ? new Date(c.paid_at).toLocaleDateString() : ''
+      ]);
+    });
+    const csv = rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `commissions-${affiliate.code}-${filter}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (loading) {
     return <CommissionsSkeleton />;
   }
 
   return (
     <div>
-      <h1 style={{
-        fontSize: '1.75rem',
-        fontWeight: '700',
-        color: '#e0e0e0',
-        marginBottom: '0.5rem'
-      }}>
-        Commission History
-      </h1>
-      <p style={{ color: '#888', marginBottom: '2rem' }}>
-        Your earnings from referred accounts
-      </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '2rem' }}>
+        <div>
+          <h1 style={{
+            fontSize: '1.75rem',
+            fontWeight: '700',
+            color: '#e0e0e0',
+            marginBottom: '0.5rem'
+          }}>
+            Commission History
+          </h1>
+          <p style={{ color: '#888' }}>
+            Your earnings from referred accounts
+          </p>
+        </div>
+        {commissions.length > 0 && (
+          <button
+            onClick={exportCSV}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '0.6rem 1.25rem',
+              background: '#2a2a2a',
+              border: '1px solid #3a3a3a',
+              borderRadius: '8px',
+              color: '#e0e0e0',
+              fontSize: '0.85rem',
+              fontWeight: '600',
+              cursor: 'pointer'
+            }}
+          >
+            <Download size={16} />
+            Export CSV
+          </button>
+        )}
+      </div>
 
       {/* Summary Cards */}
       <div style={{
