@@ -60,7 +60,7 @@
 - **files-changed:**
 
 ### QA-AFF-006: No error feedback on any page — all errors go to console.log
-- **status:** pending
+- **status:** done
 - **severity:** high
 - **reported:** 2026-03-09
 - **description:** Every page (Dashboard, LeadTracker, Referrals, Commissions, Team) catches errors but only logs to `console.log`. If RPC calls, queries, or mutations fail, the user sees $0 / empty data with zero indication that something went wrong. Affects: `Dashboard.jsx` line 66, `LeadTracker.jsx` lines 87-103, `Referrals.jsx` line 20, `Commissions.jsx` line 26, `Team.jsx` line 66.
@@ -76,7 +76,7 @@
 - **files-changed:**
 
 ### QA-AFF-008: Terms/payout DB updates have no try/catch
-- **status:** pending
+- **status:** done
 - **severity:** high
 - **reported:** 2026-03-09
 - **description:** In `App.jsx`, the terms acceptance update (line 280) and direct deposit update (line 295) have no error handling. If the Supabase update fails (network issue, RLS, etc.), the user is stuck on that screen with no error message and no way to retry.

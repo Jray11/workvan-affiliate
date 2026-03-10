@@ -49,26 +49,27 @@ Set up Playwright testing infrastructure for the affiliate portal, matching the 
 ---
 
 ## Feature AFF-2: Toast Notification System
-**Status:** pending
+**Status:** done
 **Priority:** 2
 
 ### Description
 Replace all `console.log` errors and `alert()` calls with a global toast notification system. Every user action (save, delete, copy, upload, error) should give visible feedback. This is the single biggest UX improvement — touches every page.
 
 ### Acceptance Criteria
-- [ ] Toast component with success/error/info variants
-- [ ] Auto-dismiss after 4s, manual dismiss with X
-- [ ] Stacks multiple toasts (max 3 visible)
-- [ ] All existing `console.log` error catches show error toast
-- [ ] All `alert()` calls replaced with toast
-- [ ] Copy referral link → success toast
-- [ ] W-9 upload → success/error toast
-- [ ] LeadTracker CRUD → success/error toast
-- [ ] Team add member → success/error toast
+- [x] Toast component with success/error/info variants
+- [x] Auto-dismiss after 4s, manual dismiss with X
+- [x] Stacks multiple toasts (max 3 visible)
+- [x] All existing `console.log` error catches show error toast
+- [x] All `alert()` calls replaced with toast
+- [x] Copy referral link → success toast
+- [x] W-9 upload → success/error toast
+- [x] LeadTracker CRUD → success/error toast
+- [x] Team add member → success/error toast
 
 ### Notes
-- No external dependency — build inline like the rest of the app
-- Position: bottom-right on desktop, bottom-center on mobile
+- No external dependency — built as ToastContext.jsx with inline styles
+- Position: bottom-right, slide-in animation, dark theme matching app
+- Also fixes QA-AFF-006 (no error feedback) and QA-AFF-008 (terms/payout no try/catch)
 
 ---
 
