@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { useToast } from '../ToastContext';
 import { DollarSign, CheckCircle, Clock, Calendar } from 'lucide-react';
+import { CommissionsSkeleton } from '../Skeleton';
 
 export default function Commissions({ affiliate }) {
   const toast = useToast();
@@ -64,11 +65,7 @@ export default function Commissions({ affiliate }) {
   });
 
   if (loading) {
-    return (
-      <div style={{ padding: '2rem', textAlign: 'center', color: '#888' }}>
-        Loading commissions...
-      </div>
-    );
+    return <CommissionsSkeleton />;
   }
 
   return (

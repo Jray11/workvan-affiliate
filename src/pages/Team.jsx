@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { useToast } from '../ToastContext';
 import { Users, UserPlus, TrendingUp, DollarSign, Building2, Plus, X } from 'lucide-react';
+import { TeamSkeleton } from '../Skeleton';
 
 export default function Team({ affiliate }) {
   const toast = useToast();
@@ -125,11 +126,7 @@ export default function Team({ affiliate }) {
   }), { accounts: 0, active: 0, earned: 0 });
 
   if (loading) {
-    return (
-      <div style={{ padding: '2rem', textAlign: 'center', color: '#888' }}>
-        Loading team...
-      </div>
-    );
+    return <TeamSkeleton />;
   }
 
   return (

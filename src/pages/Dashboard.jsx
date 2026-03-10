@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { useToast } from '../ToastContext';
 import { Users, DollarSign, TrendingUp, Copy, Check, ExternalLink, FileText, Upload, CheckCircle, AlertCircle } from 'lucide-react';
+import { DashboardSkeleton } from '../Skeleton';
 
 export default function Dashboard({ affiliate, onAffiliateUpdate }) {
   const toast = useToast();
@@ -151,11 +152,7 @@ export default function Dashboard({ affiliate, onAffiliateUpdate }) {
   };
 
   if (loading) {
-    return (
-      <div style={{ padding: '2rem', textAlign: 'center', color: '#888' }}>
-        Loading dashboard...
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   return (

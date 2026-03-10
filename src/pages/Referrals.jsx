@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { useToast } from '../ToastContext';
 import { Building2, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { ReferralsSkeleton } from '../Skeleton';
 
 export default function Referrals({ affiliate }) {
   const toast = useToast();
@@ -62,11 +63,7 @@ export default function Referrals({ affiliate }) {
   };
 
   if (loading) {
-    return (
-      <div style={{ padding: '2rem', textAlign: 'center', color: '#888' }}>
-        Loading referrals...
-      </div>
-    );
+    return <ReferralsSkeleton />;
   }
 
   return (

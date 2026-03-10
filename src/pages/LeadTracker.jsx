@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { useToast } from '../ToastContext';
 import { Plus, Search, Edit2, Trash2, Phone, Mail, Building2, Calendar, TrendingUp, X, MessageSquare, ChevronDown, ChevronUp, Clock } from 'lucide-react';
+import { LeadsSkeleton } from '../Skeleton';
 
 export default function LeadTracker({ affiliate }) {
   const toast = useToast();
@@ -363,17 +364,7 @@ export default function LeadTracker({ affiliate }) {
   };
 
   if (loading) {
-    return (
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '400px',
-        color: '#888'
-      }}>
-        Loading leads...
-      </div>
-    );
+    return <LeadsSkeleton />;
   }
 
   return (
