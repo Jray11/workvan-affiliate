@@ -51,6 +51,7 @@ export default function Commissions({ affiliate }) {
     return c.status === filter;
   });
 
+  const MINIMUM_PAYOUT = 50;
   const totalOwed = commissions.filter(c => c.status === 'owed').reduce((sum, c) => sum + parseFloat(c.commission_amount || 0), 0);
   const totalPaid = commissions.filter(c => c.status === 'paid').reduce((sum, c) => sum + parseFloat(c.commission_amount || 0), 0);
 
@@ -102,6 +103,11 @@ export default function Commissions({ affiliate }) {
           </div>
           <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#f39c12', fontFamily: "'JetBrains Mono', monospace" }}>
             {formatCurrency(totalOwed)}
+          </div>
+          <div style={{ color: '#888', fontSize: '0.75rem', marginTop: '0.25rem' }}>
+            {totalOwed >= MINIMUM_PAYOUT
+              ? 'Ready for payout'
+              : `$${MINIMUM_PAYOUT} minimum \u2014 rolls over to next period`}
           </div>
         </div>
 

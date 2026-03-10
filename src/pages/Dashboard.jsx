@@ -20,6 +20,7 @@ export default function Dashboard({ affiliate, onAffiliateUpdate }) {
   const [w9Error, setW9Error] = useState(null);
 
   const REFERRAL_URL = `https://workvanapp.com?ref=${affiliate.code}`;
+  const MINIMUM_PAYOUT = 50;
 
   useEffect(() => {
     loadStats();
@@ -298,7 +299,9 @@ export default function Dashboard({ affiliate, onAffiliateUpdate }) {
             {formatCurrency(stats.totalOwed)}
           </div>
           <div style={{ color: '#888', fontSize: '0.8rem' }}>
-            awaiting payment
+            {stats.totalOwed >= MINIMUM_PAYOUT
+              ? 'ready for payout'
+              : `$${MINIMUM_PAYOUT} minimum \u2014 rolls over`}
           </div>
         </div>
 
