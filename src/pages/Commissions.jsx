@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { useToast } from '../ToastContext';
-import { DollarSign, CheckCircle, Clock, Calendar } from 'lucide-react';
+import { DollarSign, CheckCircle, Clock, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import { CommissionsSkeleton } from '../Skeleton';
 
 export default function Commissions({ affiliate }) {
@@ -9,6 +9,7 @@ export default function Commissions({ affiliate }) {
   const [commissions, setCommissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all'); // 'all', 'owed', 'paid'
+  const [expandedId, setExpandedId] = useState(null);
 
   useEffect(() => {
     loadCommissions();
@@ -244,43 +245,108 @@ export default function Commissions({ affiliate }) {
 
               {/* Commission Items */}
               <div style={{ padding: '0.5rem' }}>
-                {monthCommissions.map(comm => (
-                  <div
-                    key={comm.id}
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      padding: '0.75rem',
-                      borderRadius: '8px',
-                      marginBottom: '0.25rem'
-                    }}
-                  >
-                    <div>
-                      <div style={{ color: '#e0e0e0', fontSize: '0.9rem' }}>
-                        {comm.companies?.name || 'Account'}
+                {monthCommissions.map(comm => {
+                  const isExpanded = expandedId === comm.id;
+                  const rate = comm.company_revenue > 0
+                    ? ((parseFloat(comm.commission_amount) / parseFloat(comm.company_revenue)) * 100).toFixed(1)
+                    : null;
+
+                  return (
+                    <div key={comm.id}>
+                      <div
+                        onClick={() => setExpandedId(isExpanded ? null : comm.id)}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '0.75rem',
+                          borderRadius: '8px',
+                          marginBottom: '0.25rem',
+                          cursor: 'pointer',
+                          transition: 'background 0.15s',
+                          background: isExpanded ? '#0a0a0a' : 'transparent'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          {isExpanded ? <ChevronUp size={14} color="#666" /> : <ChevronDown size={14} color="#666" />}
+                          <div>
+                            <div style={{ color: '#e0e0e0', fontSize: '0.9rem' }}>
+                              {comm.companies?.name || 'Account'}
+                            </div>
+                            {comm.notes && (
+                              <div style={{ color: '#666', fontSize: '0.8rem' }}>{comm.notes}</div>
+                            )}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                          <span style={{
+                            width: '8px',
+                            height: '8px',
+                            borderRadius: '50%',
+                            background: comm.status === 'paid' ? '#4ecca3' : '#f39c12'
+                          }} />
+                          <span style={{
+                            color: comm.status === 'paid' ? '#4ecca3' : '#f39c12',
+                            fontWeight: '600',
+                            fontFamily: "'JetBrains Mono', monospace"
+                          }}>
+                            {formatCurrency(comm.commission_amount)}
+                          </span>
+                        </div>
                       </div>
-                      {comm.notes && (
-                        <div style={{ color: '#666', fontSize: '0.8rem' }}>{comm.notes}</div>
+
+                      {isExpanded && (
+                        <div style={{
+                          margin: '0 0.75rem 0.5rem',
+                          padding: '0.75rem 1rem',
+                          background: '#0a0a0a',
+                          borderRadius: '6px',
+                          fontSize: '0.8rem',
+                          display: 'grid',
+                          gridTemplateColumns: '1fr 1fr',
+                          gap: '0.5rem 1.5rem'
+                        }}>
+                          {comm.company_revenue > 0 && (
+                            <>
+                              <div>
+                                <div style={{ color: '#666', marginBottom: '0.15rem' }}>Account Revenue</div>
+                                <div style={{ color: '#e0e0e0', fontFamily: "'JetBrains Mono', monospace" }}>
+                                  {formatCurrency(comm.company_revenue)}
+                                </div>
+                              </div>
+                              <div>
+                                <div style={{ color: '#666', marginBottom: '0.15rem' }}>Commission Rate</div>
+                                <div style={{ color: '#e0e0e0', fontFamily: "'JetBrains Mono', monospace" }}>
+                                  {rate}%
+                                </div>
+                              </div>
+                            </>
+                          )}
+                          <div>
+                            <div style={{ color: '#666', marginBottom: '0.15rem' }}>Status</div>
+                            <div style={{ color: comm.status === 'paid' ? '#4ecca3' : '#f39c12', fontWeight: '600' }}>
+                              {comm.status === 'paid' ? 'Paid' : 'Pending'}
+                            </div>
+                          </div>
+                          {comm.paid_at && (
+                            <div>
+                              <div style={{ color: '#666', marginBottom: '0.15rem' }}>Paid On</div>
+                              <div style={{ color: '#e0e0e0' }}>
+                                {new Date(comm.paid_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                              </div>
+                            </div>
+                          )}
+                          {comm.payment_notes && (
+                            <div style={{ gridColumn: '1 / -1' }}>
+                              <div style={{ color: '#666', marginBottom: '0.15rem' }}>Notes</div>
+                              <div style={{ color: '#e0e0e0' }}>{comm.payment_notes}</div>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                      <span style={{
-                        width: '8px',
-                        height: '8px',
-                        borderRadius: '50%',
-                        background: comm.status === 'paid' ? '#4ecca3' : '#f39c12'
-                      }} />
-                      <span style={{
-                        color: comm.status === 'paid' ? '#4ecca3' : '#f39c12',
-                        fontWeight: '600',
-                        fontFamily: "'JetBrains Mono', monospace"
-                      }}>
-                        {formatCurrency(comm.commission_amount)}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           );
