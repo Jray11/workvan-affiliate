@@ -366,7 +366,6 @@ export default function App() {
           @media (max-width: 768px) {
             .desktop-sidebar { display: none !important; }
             .main-content { margin-left: 0 !important; }
-            #root > div { max-width: 100vw !important; overflow-x: hidden !important; }
           }
         `}</style>
 
@@ -492,7 +491,9 @@ export default function App() {
         <style>{`
           @media (max-width: 768px) {
             .mobile-header { display: flex !important; }
-            .main-content { padding-top: 60px !important; padding-left: 1rem !important; padding-right: 1rem !important; overflow-x: hidden !important; max-width: 100vw !important; box-sizing: border-box !important; }
+            .main-content { padding-top: 60px !important; padding-left: 1rem !important; padding-right: 1rem !important; overflow-x: hidden !important; width: 100vw !important; max-width: 100vw !important; box-sizing: border-box !important; }
+            html, body, #root { max-width: 100vw !important; overflow-x: hidden !important; }
+            #root > div { max-width: 100vw !important; overflow-x: hidden !important; }
           }
         `}</style>
         <h1 style={{
