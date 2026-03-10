@@ -6,7 +6,8 @@ import Dashboard from './pages/Dashboard';
 import Referrals from './pages/Referrals';
 import Commissions from './pages/Commissions';
 import Team from './pages/Team';
-import { LayoutDashboard, Users, DollarSign, UserPlus, LogOut, Menu, X, FileText, CheckCircle, Banknote, Building, Upload } from 'lucide-react';
+import LeadTracker from './pages/LeadTracker';
+import { LayoutDashboard, Users, DollarSign, UserPlus, LogOut, Menu, X, FileText, CheckCircle, Banknote, Building, Upload, TrendingUp } from 'lucide-react';
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -323,6 +324,7 @@ export default function App() {
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'leads', label: 'Lead Tracker', icon: TrendingUp },
     { id: 'referrals', label: 'Referrals', icon: Users },
     { id: 'commissions', label: 'Commissions', icon: DollarSign },
   ];
@@ -333,6 +335,8 @@ export default function App() {
 
   const renderPage = () => {
     switch (currentPage) {
+      case 'leads':
+        return <LeadTracker affiliate={affiliate} />;
       case 'referrals':
         return <Referrals affiliate={affiliate} />;
       case 'commissions':
@@ -362,6 +366,7 @@ export default function App() {
           @media (max-width: 768px) {
             .desktop-sidebar { display: none !important; }
             .main-content { margin-left: 0 !important; }
+            #root > div { max-width: 100vw !important; overflow-x: hidden !important; }
           }
         `}</style>
 
@@ -487,7 +492,7 @@ export default function App() {
         <style>{`
           @media (max-width: 768px) {
             .mobile-header { display: flex !important; }
-            .main-content { padding-top: 60px !important; }
+            .main-content { padding-top: 60px !important; padding-left: 1rem !important; padding-right: 1rem !important; overflow-x: hidden !important; max-width: 100vw !important; box-sizing: border-box !important; }
           }
         `}</style>
         <h1 style={{
