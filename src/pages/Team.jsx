@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { useToast } from '../ToastContext';
-import { Users, UserPlus, TrendingUp, DollarSign, Building2, Plus, X } from 'lucide-react';
+import { Users, UserPlus, TrendingUp, DollarSign, Building2, Plus, X, Edit2, UserX, UserCheck } from 'lucide-react';
 import { TeamSkeleton } from '../Skeleton';
 
 export default function Team({ affiliate, readOnly }) {
@@ -18,6 +18,7 @@ export default function Team({ affiliate, readOnly }) {
     commission_rate: affiliate.can_set_sub_rates ? '5.00' : ''
   });
   const [saving, setSaving] = useState(false);
+  const [editingMember, setEditingMember] = useState(null);
 
   useEffect(() => {
     loadTeam();
@@ -111,6 +112,58 @@ export default function Team({ affiliate, readOnly }) {
     }
   };
 
+  const handleUpdateMember = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('affiliates')
+        .update({
+          commission_model: editingMember.commission_model,
+          commission_rate: parseFloat(editingMember.commission_rate)
+        })
+        .eq('id', editingMember.id);
+
+      if (error) throw error;
+      setEditingMember(null);
+      loadTeam();
+      toast.success('Team member updated');
+    } catch (error) {
+      toast.error('Failed to update: ' + error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleToggleActive = async (member) => {
+    const action = member.active ? 'deactivate' : 'reactivate';
+    if (!confirm(`${member.active ? 'Deactivate' : 'Reactivate'} ${member.name}? ${member.active ? 'They will lose portal access.' : ''}`)) return;
+
+    try {
+      const updates = { active: !member.active, portal_enabled: !member.active };
+      if (member.active) {
+        updates.terminated_at = new Date().toISOString();
+        const expires = new Date();
+        expires.setDate(expires.getDate() + 90);
+        updates.access_expires_at = expires.toISOString();
+      } else {
+        updates.terminated_at = null;
+        updates.access_expires_at = null;
+      }
+
+      const { error } = await supabase
+        .from('affiliates')
+        .update(updates)
+        .eq('id', member.id);
+
+      if (error) throw error;
+      loadTeam();
+      toast.success(`${member.name} ${action}d`);
+    } catch (error) {
+      toast.error(`Failed to ${action}: ` + error.message);
+    }
+  };
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -124,6 +177,9 @@ export default function Team({ affiliate, readOnly }) {
     active: acc.active + m.activeCount,
     earned: acc.earned + m.totalEarned
   }), { accounts: 0, active: 0, earned: 0 });
+
+  const activeMembers = teamMembers.filter(m => m.active !== false);
+  const inactiveMembers = teamMembers.filter(m => m.active === false);
 
   if (loading) {
     return <TeamSkeleton />;
@@ -257,7 +313,7 @@ export default function Team({ affiliate, readOnly }) {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {teamMembers.map(member => (
+          {activeMembers.map(member => (
             <div
               key={member.id}
               style={{
@@ -297,16 +353,57 @@ export default function Team({ affiliate, readOnly }) {
                     </div>
                   </div>
                 </div>
-                <span style={{
-                  padding: '0.25rem 0.6rem',
-                  background: member.active ? '#4ecca320' : '#88888820',
-                  color: member.active ? '#4ecca3' : '#888',
-                  borderRadius: '4px',
-                  fontSize: '0.75rem',
-                  fontWeight: '600'
-                }}>
-                  {member.active ? 'Active' : 'Inactive'}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{
+                    padding: '0.25rem 0.6rem',
+                    background: member.active ? '#4ecca320' : '#88888820',
+                    color: member.active ? '#4ecca3' : '#888',
+                    borderRadius: '4px',
+                    fontSize: '0.75rem',
+                    fontWeight: '600'
+                  }}>
+                    {member.active ? 'Active' : 'Inactive'}
+                  </span>
+                  {!readOnly && (
+                    <>
+                      <button
+                        onClick={() => setEditingMember({
+                          id: member.id,
+                          name: member.name,
+                          commission_model: member.commission_model,
+                          commission_rate: member.commission_model === 'percentage'
+                            ? member.commission_rate
+                            : member.commission_rate
+                        })}
+                        title="Edit"
+                        style={{
+                          padding: '0.35rem',
+                          background: '#2a2a2a',
+                          border: 'none',
+                          borderRadius: '6px',
+                          color: '#888',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                      <button
+                        onClick={() => handleToggleActive(member)}
+                        title={member.active ? 'Deactivate' : 'Reactivate'}
+                        style={{
+                          padding: '0.35rem',
+                          background: '#2a2a2a',
+                          border: 'none',
+                          borderRadius: '6px',
+                          color: member.active ? '#e74c3c' : '#4ecca3',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {member.active ? <UserX size={14} /> : <UserCheck size={14} />}
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
 
               <div style={{
@@ -356,6 +453,86 @@ export default function Team({ affiliate, readOnly }) {
               </div>
             </div>
           ))}
+
+          {/* Inactive Members */}
+          {inactiveMembers.length > 0 && (
+            <>
+              <div style={{ color: '#666', fontSize: '0.85rem', fontWeight: '600', marginTop: '1rem' }}>
+                Inactive ({inactiveMembers.length})
+              </div>
+              {inactiveMembers.map(member => (
+                <div
+                  key={member.id}
+                  style={{
+                    background: '#1a1a1a',
+                    borderRadius: '12px',
+                    padding: '1.25rem',
+                    border: '1px solid #2a2a2a',
+                    opacity: 0.6
+                  }}
+                >
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '0.5rem'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <div style={{
+                        width: '42px',
+                        height: '42px',
+                        background: '#444',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '1rem',
+                        fontWeight: '700',
+                        color: '#888'
+                      }}>
+                        {member.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <div style={{ color: '#888', fontWeight: '600' }}>{member.name}</div>
+                        <div style={{ color: '#666', fontSize: '0.8rem' }}>
+                          Code: <code style={{ color: '#666' }}>{member.code}</code>
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{
+                        padding: '0.25rem 0.6rem',
+                        background: '#88888820',
+                        color: '#888',
+                        borderRadius: '4px',
+                        fontSize: '0.75rem',
+                        fontWeight: '600'
+                      }}>
+                        Inactive
+                      </span>
+                      {!readOnly && (
+                        <button
+                          onClick={() => handleToggleActive(member)}
+                          title="Reactivate"
+                          style={{
+                            padding: '0.35rem',
+                            background: '#2a2a2a',
+                            border: 'none',
+                            borderRadius: '6px',
+                            color: '#4ecca3',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <UserCheck size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
         </div>
       )}
 
@@ -569,6 +746,145 @@ export default function Team({ affiliate, readOnly }) {
                   }}
                 >
                   {saving ? 'Adding...' : 'Add Team Member'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Edit Member Modal */}
+      {editingMember && !readOnly && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.85)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '1rem'
+        }}>
+          <div style={{
+            background: '#1a1a1a',
+            borderRadius: '12px',
+            padding: '1.5rem',
+            width: '100%',
+            maxWidth: '400px',
+            border: '1px solid #3a3a3a'
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '1.5rem'
+            }}>
+              <h2 style={{ color: '#e0e0e0', fontSize: '1.25rem', fontWeight: '700' }}>
+                Edit {editingMember.name}
+              </h2>
+              <button
+                onClick={() => setEditingMember(null)}
+                style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer' }}
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateMember}>
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.35rem', color: '#aaa', fontSize: '0.85rem' }}>
+                  Commission Type
+                </label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setEditingMember({ ...editingMember, commission_model: 'fixed', commission_rate: '5.00' })}
+                    style={{
+                      flex: 1,
+                      padding: '0.75rem',
+                      background: editingMember.commission_model === 'fixed' ? '#ff6b35' : '#2a2a2a',
+                      border: editingMember.commission_model === 'fixed' ? '2px solid #ff6b35' : '1px solid #3a3a3a',
+                      borderRadius: '8px',
+                      color: editingMember.commission_model === 'fixed' ? '#fff' : '#888',
+                      fontWeight: editingMember.commission_model === 'fixed' ? '600' : '400',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    $ per month
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingMember({ ...editingMember, commission_model: 'percentage', commission_rate: '0.10' })}
+                    style={{
+                      flex: 1,
+                      padding: '0.75rem',
+                      background: editingMember.commission_model === 'percentage' ? '#ff6b35' : '#2a2a2a',
+                      border: editingMember.commission_model === 'percentage' ? '2px solid #ff6b35' : '1px solid #3a3a3a',
+                      borderRadius: '8px',
+                      color: editingMember.commission_model === 'percentage' ? '#fff' : '#888',
+                      fontWeight: editingMember.commission_model === 'percentage' ? '600' : '400',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    % of revenue
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.35rem', color: '#aaa', fontSize: '0.85rem' }}>
+                  {editingMember.commission_model === 'fixed' ? 'Amount ($ per month)' : 'Rate (e.g., 0.10 = 10%)'}
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max={editingMember.commission_model === 'percentage' ? '1' : undefined}
+                  value={editingMember.commission_rate}
+                  onChange={(e) => setEditingMember({ ...editingMember, commission_rate: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    background: '#2a2a2a',
+                    border: '1px solid #3a3a3a',
+                    borderRadius: '8px',
+                    color: '#e0e0e0',
+                    fontSize: '1rem'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setEditingMember(null)}
+                  style={{
+                    flex: 1,
+                    padding: '0.875rem',
+                    background: '#2a2a2a',
+                    border: 'none',
+                    borderRadius: '8px',
+                    color: '#e0e0e0',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  style={{
+                    flex: 2,
+                    padding: '0.875rem',
+                    background: saving ? '#666' : '#9b59b6',
+                    border: 'none',
+                    borderRadius: '8px',
+                    color: '#fff',
+                    fontWeight: '600',
+                    cursor: saving ? 'wait' : 'pointer'
+                  }}
+                >
+                  {saving ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
             </form>
