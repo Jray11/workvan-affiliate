@@ -170,6 +170,50 @@ export default function Dashboard({ affiliate, onAffiliateUpdate }) {
         Here's your affiliate performance overview
       </p>
 
+      {/* Payout Setup Reminder */}
+      {affiliate.payout_setup_skipped && !affiliate.payout_setup_complete && (
+        <div style={{
+          background: '#f39c1215',
+          border: '1px solid #f39c1240',
+          borderRadius: '10px',
+          padding: '1rem 1.25rem',
+          marginBottom: '1.5rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '0.75rem'
+        }}>
+          <div>
+            <div style={{ color: '#f39c12', fontWeight: '600', marginBottom: '0.25rem' }}>
+              Payout setup incomplete
+            </div>
+            <div style={{ color: '#888', fontSize: '0.85rem' }}>
+              Add your bank details so we can pay your commissions.
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              // Reset skip flag to re-show the setup screen
+              onAffiliateUpdate && onAffiliateUpdate({ ...affiliate, payout_setup_skipped: false });
+            }}
+            style={{
+              padding: '0.6rem 1.25rem',
+              background: '#f39c12',
+              border: 'none',
+              borderRadius: '8px',
+              color: '#fff',
+              fontWeight: '600',
+              cursor: 'pointer',
+              fontSize: '0.85rem',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            Set Up Now
+          </button>
+        </div>
+      )}
+
       {/* Referral Link Card */}
       <div style={{
         background: 'linear-gradient(135deg, #ff6b35, #f7931e)',

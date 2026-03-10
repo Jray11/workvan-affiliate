@@ -18,6 +18,7 @@ export default function LeadTracker({ affiliate, readOnly }) {
   const [selectedLead, setSelectedLead] = useState(null);
   const [expandedLead, setExpandedLead] = useState(null);
   const [contactHistory, setContactHistory] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
     company_name: '',
@@ -124,6 +125,8 @@ export default function LeadTracker({ affiliate, readOnly }) {
 
   const addLead = async (e) => {
     e.preventDefault();
+    if (submitting) return;
+    setSubmitting(true);
     try {
       const { data, error } = await supabase
         .from('affiliate_leads')
@@ -153,11 +156,15 @@ export default function LeadTracker({ affiliate, readOnly }) {
     } catch (error) {
       console.error('Error adding lead:', error);
       toast.error('Failed to add lead: ' + error.message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const updateLead = async (e) => {
     e.preventDefault();
+    if (submitting) return;
+    setSubmitting(true);
     try {
       const { data, error } = await supabase
         .from('affiliate_leads')
@@ -189,12 +196,16 @@ export default function LeadTracker({ affiliate, readOnly }) {
     } catch (error) {
       console.error('Error updating lead:', error);
       toast.error('Failed to update lead: ' + error.message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const deleteLead = async (id) => {
+    if (submitting) return;
     if (!window.confirm('Are you sure you want to delete this lead?')) return;
 
+    setSubmitting(true);
     try {
       const { error } = await supabase
         .from('affiliate_leads')
@@ -208,11 +219,15 @@ export default function LeadTracker({ affiliate, readOnly }) {
     } catch (error) {
       console.error('Error deleting lead:', error);
       toast.error('Failed to delete lead: ' + error.message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const logContact = async (e) => {
     e.preventDefault();
+    if (submitting) return;
+    setSubmitting(true);
     try {
       const { data, error } = await supabase
         .from('affiliate_lead_contacts')
@@ -250,6 +265,8 @@ export default function LeadTracker({ affiliate, readOnly }) {
     } catch (error) {
       console.error('Error logging contact:', error);
       toast.error('Failed to log contact: ' + error.message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -712,6 +729,7 @@ export default function LeadTracker({ affiliate, readOnly }) {
                       </button>
                       <button
                         onClick={() => deleteLead(lead.id)}
+                        disabled={submitting}
                         style={{
                           padding: '0.5rem 0.75rem',
                           background: '#333',
@@ -719,7 +737,8 @@ export default function LeadTracker({ affiliate, readOnly }) {
                           borderRadius: '6px',
                           color: '#e74c3c',
                           fontSize: '0.8rem',
-                          cursor: 'pointer'
+                          cursor: submitting ? 'not-allowed' : 'pointer',
+                          opacity: submitting ? 0.5 : 1
                         }}
                       >
                         <Trash2 size={14} />
@@ -1022,19 +1041,21 @@ export default function LeadTracker({ affiliate, readOnly }) {
                 </button>
                 <button
                   type="submit"
+                  disabled={submitting}
                   style={{
                     flex: 1,
                     padding: '0.875rem',
-                    background: 'linear-gradient(135deg, #ff6b35, #f7931e)',
+                    background: submitting ? '#555' : 'linear-gradient(135deg, #ff6b35, #f7931e)',
                     border: 'none',
                     borderRadius: '8px',
                     color: '#fff',
                     fontSize: '0.95rem',
                     fontWeight: '600',
-                    cursor: 'pointer'
+                    cursor: submitting ? 'not-allowed' : 'pointer',
+                    opacity: submitting ? 0.7 : 1
                   }}
                 >
-                  Add Lead
+                  {submitting ? 'Saving...' : 'Add Lead'}
                 </button>
               </div>
             </form>
@@ -1232,19 +1253,21 @@ export default function LeadTracker({ affiliate, readOnly }) {
                 </button>
                 <button
                   type="submit"
+                  disabled={submitting}
                   style={{
                     flex: 1,
                     padding: '0.875rem',
-                    background: 'linear-gradient(135deg, #ff6b35, #f7931e)',
+                    background: submitting ? '#555' : 'linear-gradient(135deg, #ff6b35, #f7931e)',
                     border: 'none',
                     borderRadius: '8px',
                     color: '#fff',
                     fontSize: '0.95rem',
                     fontWeight: '600',
-                    cursor: 'pointer'
+                    cursor: submitting ? 'not-allowed' : 'pointer',
+                    opacity: submitting ? 0.7 : 1
                   }}
                 >
-                  Save Changes
+                  {submitting ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
             </form>
@@ -1357,19 +1380,21 @@ export default function LeadTracker({ affiliate, readOnly }) {
                 </button>
                 <button
                   type="submit"
+                  disabled={submitting}
                   style={{
                     flex: 1,
                     padding: '0.875rem',
-                    background: 'linear-gradient(135deg, #3498db, #2980b9)',
+                    background: submitting ? '#555' : 'linear-gradient(135deg, #3498db, #2980b9)',
                     border: 'none',
                     borderRadius: '8px',
                     color: '#fff',
                     fontSize: '0.95rem',
                     fontWeight: '600',
-                    cursor: 'pointer'
+                    cursor: submitting ? 'not-allowed' : 'pointer',
+                    opacity: submitting ? 0.7 : 1
                   }}
                 >
-                  Log Contact
+                  {submitting ? 'Saving...' : 'Log Contact'}
                 </button>
               </div>
             </form>

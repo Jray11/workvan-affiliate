@@ -321,7 +321,8 @@ export default function App() {
 
   // Direct Deposit setup screen - show after terms accepted but before payout is set up
   // Skip for impersonation (admins viewing as affiliate)
-  if (!isImpersonating && !affiliate.payout_setup_complete) {
+  // Allow through if completed OR skipped (skipped affiliates see a reminder banner)
+  if (!isImpersonating && !affiliate.payout_setup_complete && !affiliate.payout_setup_skipped) {
     return <DirectDepositSetup affiliate={affiliate} onComplete={async (payoutData) => {
       try {
         const { error } = await supabase
@@ -334,12 +335,13 @@ export default function App() {
             account_holder_name: payoutData.accountHolderName,
             tax_id_type: payoutData.taxIdType,
             tax_id_last4: payoutData.taxIdLast4,
-            payout_setup_complete: true
+            payout_setup_complete: true,
+            payout_setup_skipped: false
           })
           .eq('id', affiliate.id);
 
         if (error) throw error;
-        setAffiliate({ ...affiliate, payout_setup_complete: true });
+        setAffiliate({ ...affiliate, payout_setup_complete: true, payout_setup_skipped: false });
         toast.success('Payout information saved successfully');
       } catch (err) {
         toast.error('Failed to save payout information. Please try again.');
@@ -348,11 +350,11 @@ export default function App() {
       try {
         const { error } = await supabase
           .from('affiliates')
-          .update({ payout_setup_complete: true })
+          .update({ payout_setup_skipped: true })
           .eq('id', affiliate.id);
 
         if (error) throw error;
-        setAffiliate({ ...affiliate, payout_setup_complete: true });
+        setAffiliate({ ...affiliate, payout_setup_skipped: true });
       } catch (err) {
         toast.error('Something went wrong. Please try again.');
       }
