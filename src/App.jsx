@@ -344,8 +344,8 @@ export default function App() {
           .from('affiliates')
           .update({
             bank_name: payoutData.bankName,
-            routing_number: payoutData.routingNumber,
-            account_number: payoutData.accountNumber,
+            routing_number_last4: payoutData.routingNumber.slice(-4),
+            account_number_last4: payoutData.accountNumber.slice(-4),
             account_type: payoutData.accountType,
             account_holder_name: payoutData.accountHolderName,
             tax_id_type: payoutData.taxIdType,
