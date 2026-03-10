@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { useToast } from '../ToastContext';
-import { Plus, Search, Edit2, Trash2, Phone, Mail, Building2, Calendar, TrendingUp, X, MessageSquare, ChevronDown, ChevronUp, Clock } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Phone, Mail, Building2, Calendar, TrendingUp, X, MessageSquare, ChevronDown, ChevronUp, Clock, LayoutList, LayoutGrid } from 'lucide-react';
 import { LeadsSkeleton } from '../Skeleton';
 
 export default function LeadTracker({ affiliate, readOnly }) {
@@ -20,6 +20,9 @@ export default function LeadTracker({ affiliate, readOnly }) {
   const [contactHistory, setContactHistory] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [leadPage, setLeadPage] = useState(1);
+  const [viewMode, setViewMode] = useState(() => {
+    try { return localStorage.getItem('lead_view_mode') || 'list'; } catch { return 'list'; }
+  });
   const LEADS_PER_PAGE = 20;
 
   const [formData, setFormData] = useState({
@@ -434,6 +437,40 @@ export default function LeadTracker({ affiliate, readOnly }) {
           Add Lead
         </button>
         )}
+        <div style={{ display: 'flex', gap: '0.25rem', background: '#1a1a1a', borderRadius: '8px', padding: '0.25rem' }}>
+          <button
+            onClick={() => { setViewMode('list'); try { localStorage.setItem('lead_view_mode', 'list'); } catch {} }}
+            style={{
+              padding: '0.5rem 0.75rem',
+              background: viewMode === 'list' ? '#ff6b35' : 'transparent',
+              border: 'none',
+              borderRadius: '6px',
+              color: viewMode === 'list' ? '#fff' : '#888',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center'
+            }}
+            title="List view"
+          >
+            <LayoutList size={16} />
+          </button>
+          <button
+            onClick={() => { setViewMode('board'); try { localStorage.setItem('lead_view_mode', 'board'); } catch {} }}
+            style={{
+              padding: '0.5rem 0.75rem',
+              background: viewMode === 'board' ? '#ff6b35' : 'transparent',
+              border: 'none',
+              borderRadius: '6px',
+              color: viewMode === 'board' ? '#fff' : '#888',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center'
+            }}
+            title="Board view"
+          >
+            <LayoutGrid size={16} />
+          </button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -492,6 +529,8 @@ export default function LeadTracker({ affiliate, readOnly }) {
         </div>
       </div>
 
+      {viewMode === 'list' ? (
+      <>
       {/* Filters */}
       <div style={{
         background: '#1a1a1a',
@@ -907,6 +946,103 @@ export default function LeadTracker({ affiliate, readOnly }) {
           >
             Next
           </button>
+        </div>
+      )}
+      </>
+      ) : (
+        /* Board View */
+        <div style={{
+          display: 'flex',
+          gap: '0.75rem',
+          overflowX: 'auto',
+          paddingBottom: '1rem',
+          minHeight: '400px'
+        }}>
+          {statuses.filter(s => !['stalled'].includes(s.value)).map(status => {
+            const columnLeads = leads.filter(l => l.status === status.value);
+            return (
+              <div key={status.value} style={{
+                minWidth: '220px',
+                flex: '1 0 220px',
+                background: '#111',
+                borderRadius: '10px',
+                border: '1px solid #222',
+                display: 'flex',
+                flexDirection: 'column'
+              }}>
+                <div style={{
+                  padding: '0.75rem 1rem',
+                  borderBottom: '2px solid ' + status.color,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <span style={{ color: status.color, fontWeight: '700', fontSize: '0.8rem', textTransform: 'uppercase' }}>
+                    {status.label}
+                  </span>
+                  <span style={{
+                    background: status.color + '30',
+                    color: status.color,
+                    padding: '0.15rem 0.5rem',
+                    borderRadius: '10px',
+                    fontSize: '0.75rem',
+                    fontWeight: '700'
+                  }}>
+                    {columnLeads.length}
+                  </span>
+                </div>
+                <div style={{ padding: '0.5rem', flex: 1, overflowY: 'auto' }}>
+                  {columnLeads.map(lead => (
+                    <div
+                      key={lead.id}
+                      onClick={() => { if (!readOnly) { openEditModal(lead); } }}
+                      style={{
+                        background: '#1a1a1a',
+                        borderRadius: '8px',
+                        padding: '0.75rem',
+                        marginBottom: '0.5rem',
+                        border: '1px solid #2a2a2a',
+                        cursor: readOnly ? 'default' : 'pointer',
+                        transition: 'border-color 0.15s'
+                      }}
+                    >
+                      <div style={{ color: '#e0e0e0', fontWeight: '600', fontSize: '0.85rem', marginBottom: '0.25rem' }}>
+                        {lead.company_name}
+                      </div>
+                      {lead.contact_name && (
+                        <div style={{ color: '#888', fontSize: '0.75rem', marginBottom: '0.35rem' }}>
+                          {lead.contact_name}
+                        </div>
+                      )}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        {lead.priority && (
+                          <span style={{
+                            fontSize: '0.65rem',
+                            fontWeight: '600',
+                            padding: '0.15rem 0.4rem',
+                            borderRadius: '4px',
+                            background: lead.priority === 'hot' ? '#e74c3c30' : lead.priority === 'warm' ? '#f39c1230' : '#3498db30',
+                            color: lead.priority === 'hot' ? '#e74c3c' : lead.priority === 'warm' ? '#f39c12' : '#3498db',
+                            textTransform: 'uppercase'
+                          }}>
+                            {lead.priority}
+                          </span>
+                        )}
+                        {lead.next_follow_up && (
+                          <span style={{
+                            fontSize: '0.65rem',
+                            color: new Date(lead.next_follow_up) < new Date() ? '#e74c3c' : '#666'
+                          }}>
+                            {new Date(lead.next_follow_up).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
