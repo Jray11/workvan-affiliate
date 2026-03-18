@@ -14,8 +14,13 @@ const SECTIONS = [
       },
       {
         type: 'pitch',
-        label: '30-Second Pitch',
+        label: '30-Second Pitch (Tech-Savvy Owner)',
         text: 'If you run a field service business — garage doors, HVAC, pest control, plumbing — you know how much time gets wasted on paperwork, missed calls, and chasing payments. Work Van puts everything in one app: scheduling, quotes, invoices, customer texting, and card payments. Your techs get a mobile app, your office gets a dashboard, and you get paid faster. Most owners save 5-10 hours a week and see ROI in the first month.'
+      },
+      {
+        type: 'pitch',
+        label: '30-Second Pitch (No-Tech Owner)',
+        text: 'Right now you\'re probably texting customers from your personal phone, writing estimates on paper, and chasing people for Zelle or CashApp payments. Work Van gives you a professional system — send real quotes customers can sign on their phone, take card payments on the spot, and text reminders from a business number. It also protects you with terms and conditions on every job so customers can\'t dispute charges. Takes 5 minutes to set up.'
       },
       {
         type: 'pitch',
@@ -32,14 +37,16 @@ const SECTIONS = [
       {
         type: 'points',
         items: [
-          { title: 'All-in-One Platform', desc: 'Replaces separate apps for scheduling, invoicing, payments, customer communication, and inventory. One login, one bill.' },
-          { title: 'Get Paid Faster', desc: 'Send invoices with a tap, accept credit cards on-site or via text link. Most businesses see payment times drop from weeks to days.' },
-          { title: 'Professional Customer Experience', desc: 'Automated appointment reminders via text, professional quotes with e-signatures, and branded invoices make even solo operators look like big companies.' },
+          { title: 'Stop Chasing Payments', desc: 'No more texting customers for Zelle or CashApp. Send professional invoices with a tap, accept credit cards on-site or via text link. Payment times drop from weeks to days — or get paid on the spot.' },
+          { title: 'Protect Yourself from Chargebacks', desc: 'Every job has documentation — signed quotes, before/after photos, job notes, and timestamps. When a customer disputes a charge, you have proof. No more "he said, she said."' },
+          { title: 'Terms & Conditions on Every Job', desc: 'AI-generated terms and conditions customized to your trade protect you legally. Customers agree before work starts — covers liability, payment terms, warranty, and cancellation. Most contractors have zero protection.' },
+          { title: 'Look Professional, Win More Jobs', desc: 'Automated appointment reminders via text, professional quotes with e-signatures, and branded invoices make even solo operators look like big companies. Customers trust businesses that look organized.' },
+          { title: 'All-in-One Platform', desc: 'Scheduling, invoicing, payments, customer communication, quotes, and inventory — all in one app. Replaces the patchwork of Square, Zelle, paper estimates, and personal texts.' },
           { title: 'Built for the Field', desc: 'Mobile-first design means techs can manage their day from their phone. Before/after photos, job notes, inventory tracking — all without calling the office.' },
           { title: 'Team Management', desc: 'Multi-user support with role-based access. Office staff see everything, techs see their jobs. Real-time schedule updates.' },
           { title: 'No Contracts', desc: 'Weekly, monthly, or annual billing. Cancel anytime. Free trial to start.' },
           { title: 'Inventory Tracking', desc: 'Know what\'s on every truck, auto-deduct parts when jobs are completed, get low-stock alerts before you run out.' },
-          { title: 'SMS Built In', desc: 'Text customers directly from the app — appointment reminders, quote follow-ups, payment requests. No personal phone number needed.' }
+          { title: 'SMS Built In', desc: 'Text customers from a business number — appointment reminders, quote follow-ups, payment requests. Stop using your personal phone for business.' }
         ]
       }
     ]
@@ -96,6 +103,18 @@ const SECTIONS = [
       {
         type: 'objections',
         items: [
+          {
+            objection: '"I don\'t use anything / pen and paper works fine"',
+            response: 'That\'s actually most of the guys we talk to. The question is — how much are you losing? When you text customers from your personal phone asking for Zelle, some just don\'t pay. When you do a job with no signed quote, you have zero protection if they dispute it. And when there\'s no documentation, chargebacks eat your profit. Work Van isn\'t about replacing something — it\'s about collecting more of what you\'re already owed and protecting yourself when things go sideways.'
+          },
+          {
+            objection: '"I just use Square / Zelle / CashApp"',
+            response: 'Those are fine for collecting money, but they don\'t protect you. There\'s no signed quote, no terms and conditions, no before/after photos tied to the job. If a customer files a chargeback or says the work wasn\'t done right, you have nothing to show. Work Van gives you a paper trail — signed quotes, job documentation, and professional invoices — plus you can still take card payments right there.'
+          },
+          {
+            objection: '"My customers won\'t use an app"',
+            response: 'Your customers don\'t use anything — you do. They just get a text with a link to view their quote, sign it, or pay their invoice. It\'s like clicking a link in a text message. If they can open a text, they can use it. And most customers actually prefer it — they feel more confident hiring someone who sends professional quotes instead of a number scribbled on paper.'
+          },
           {
             objection: '"We already use ServiceTitan"',
             response: 'ServiceTitan is solid for big companies, but it starts around $300/month per tech — so a 3-person crew is paying $900+/month before add-ons. Work Van starts at $50/month and even with additional users at $5/each, a 3-person crew is $60/month. Most ServiceTitan users are paying 10-15x more and only using a fraction of the features.'
@@ -164,11 +183,14 @@ const SECTIONS = [
       {
         type: 'starters',
         items: [
-          { scenario: 'At a trade show or networking event', line: '"What do you use to manage your schedule and billing? Most guys I talk to are juggling 3 different apps or still using paper."' },
+          { scenario: 'At a trade show or networking event', line: '"What do you use to manage your schedule and billing? Most guys I talk to are still using paper or just texting customers from their personal phone."' },
+          { scenario: 'When they mention chasing payments', line: '"Are you still texting people for Zelle? There\'s an app that lets you send an invoice link by text — customer taps it, pays by card, done. No more chasing."' },
+          { scenario: 'When they mention a bad customer experience', line: '"Did you have a signed quote? Most guys don\'t, and that\'s when you get burned. Work Van lets customers sign quotes on their phone before you start — plus it adds terms and conditions so you\'re protected."' },
           { scenario: 'Talking to a business owner you know', line: '"Hey, how\'s business? I wanted to show you something — there\'s this app that a lot of [their trade] guys are switching to. Takes like 5 minutes to set up."' },
-          { scenario: 'Cold outreach (text/email)', line: '"Hi [Name], I work with field service businesses and wanted to share a tool that\'s helping [trade] companies save 5-10 hours a week on admin. Free trial, no commitment. Worth a look?"' },
-          { scenario: 'After they complain about admin work', line: '"Yeah, that\'s exactly what Work Van solves. It handles scheduling, invoicing, and customer texts all in one app. Want me to send you the sign-up link?"' },
-          { scenario: 'Referral from existing user', line: '"[Mutual contact] mentioned you run a [trade] business. They\'ve been using this app called Work Van and said I should connect you — it\'s helped them cut their paperwork in half."' }
+          { scenario: 'Cold outreach (text/email)', line: '"Hi [Name], I work with field service businesses and wanted to share a tool that\'s helping [trade] companies collect more, get paid faster, and protect themselves from chargebacks. Free trial, no commitment. Worth a look?"' },
+          { scenario: 'After they complain about admin work', line: '"Yeah, that\'s exactly what Work Van solves. Scheduling, invoicing, payments, customer texts — all in one app. Most guys set it up in 5 minutes and wonder how they ran without it."' },
+          { scenario: 'Referral from existing user', line: '"[Mutual contact] mentioned you run a [trade] business. They\'ve been using this app called Work Van and said I should connect you — it\'s helped them cut their paperwork in half."' },
+          { scenario: 'When you see them using paper estimates', line: '"You know if a customer disputes that, you\'ve got nothing to show, right? Work Van lets you build a quote on your phone in 2 minutes, customer signs it right there, and it saves everything — photos, terms, the whole thing."' }
         ]
       }
     ]
