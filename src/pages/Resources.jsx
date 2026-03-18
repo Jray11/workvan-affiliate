@@ -20,7 +20,7 @@ const SECTIONS = [
       {
         type: 'pitch',
         label: 'One-Liner',
-        text: 'Work Van is like having an office manager, dispatcher, and bookkeeper in your pocket — for less than a tank of gas per week.'
+        text: 'Work Van is like having an office manager, dispatcher, and bookkeeper in your pocket — for less than a combo meal per week.'
       }
     ]
   },
@@ -110,7 +110,7 @@ const SECTIONS = [
           },
           {
             objection: '"It\'s too expensive"',
-            response: 'At $12.50/week, it\'s less than a tank of gas. For comparison, ServiceTitan runs $300+/month per tech, Workiz is $225/month, and even Jobber\'s mid-tier is $130/month. Work Van starts at $50/month with additional users at just $5/each. If it saves you even one hour of admin time per week, it\'s already paid for itself. Plus there\'s a free trial — zero risk.'
+            response: 'At $12.50/week, it\'s less than a combo meal. For comparison, ServiceTitan runs $300+/month per tech, Workiz is $225/month, and even Jobber\'s mid-tier is $130/month. Work Van starts at $50/month with additional users at just $5/each. If it saves you even one hour of admin time per week, it\'s already paid for itself. Plus there\'s a free trial — zero risk.'
           },
           {
             objection: '"I\'m not tech savvy"',
