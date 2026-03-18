@@ -260,20 +260,97 @@ function Section({ section, isOpen, onToggle }) {
               )}
 
               {block.type === 'pricing' && (
-                <div style={{ display: 'grid', gap: '10px', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
-                  {block.tiers.map((tier, j) => (
-                    <div key={j} style={{
-                      background: '#1a1a1a', borderRadius: '8px', padding: '1rem',
-                      border: '1px solid #2a2a2a'
-                    }}>
-                      <div style={{ color: '#ff6b35', fontWeight: '700', fontSize: '1.1rem', marginBottom: '4px' }}>{tier.name}</div>
-                      <div style={{ color: '#e0e0e0', fontWeight: '600', fontSize: '1.25rem' }}>{tier.price}</div>
-                      <div style={{ color: '#888', fontSize: '0.8rem', marginBottom: '8px' }}>{tier.altPrice}</div>
-                      <div style={{ color: '#999', fontSize: '0.8rem', marginBottom: '4px' }}><strong style={{ color: '#bbb' }}>Users:</strong> {tier.users}</div>
-                      <div style={{ color: '#999', fontSize: '0.8rem', marginBottom: '4px' }}><strong style={{ color: '#bbb' }}>Best for:</strong> {tier.best}</div>
-                      <div style={{ color: '#999', fontSize: '0.8rem' }}><strong style={{ color: '#bbb' }}>Includes:</strong> {tier.includes}</div>
-                    </div>
-                  ))}
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{
+                    width: '100%', borderCollapse: 'separate', borderSpacing: 0,
+                    borderRadius: '12px', overflow: 'hidden', minWidth: '600px',
+                    border: '1px solid #2a2a2a'
+                  }}>
+                    <thead>
+                      <tr>
+                        <th style={{
+                          background: '#1a1a1a', padding: '14px 16px', textAlign: 'left',
+                          color: '#888', fontSize: '0.8rem', fontWeight: '600', textTransform: 'uppercase',
+                          letterSpacing: '0.5px', borderBottom: '2px solid #ff6b35'
+                        }}></th>
+                        {block.tiers.map((tier, j) => (
+                          <th key={j} style={{
+                            background: tier.name === 'Team' ? '#ff6b3512' : '#1a1a1a',
+                            padding: '14px 16px', textAlign: 'center',
+                            borderBottom: '2px solid #ff6b35',
+                            borderLeft: '1px solid #2a2a2a',
+                            position: 'relative'
+                          }}>
+                            {tier.name === 'Team' && (
+                              <div style={{
+                                position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)',
+                                background: '#ff6b35', color: '#fff', fontSize: '0.65rem', fontWeight: '700',
+                                padding: '2px 10px', borderRadius: '0 0 6px 6px', textTransform: 'uppercase',
+                                letterSpacing: '0.5px'
+                              }}>Most Popular</div>
+                            )}
+                            <div style={{
+                              color: '#ff6b35', fontWeight: '700', fontSize: '1.1rem',
+                              marginTop: tier.name === 'Team' ? '8px' : 0
+                            }}>{tier.name}</div>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        { label: 'Monthly', key: 'price', highlight: true },
+                        { label: 'Weekly', key: 'weekly' },
+                        { label: 'Annual', key: 'annual' },
+                        { label: 'Users', key: 'users' },
+                        { label: 'Best For', key: 'best' },
+                        { label: 'Includes', key: 'includes' },
+                      ].map((row, ri) => (
+                        <tr key={ri}>
+                          <td style={{
+                            padding: '12px 16px', color: '#888', fontSize: '0.85rem', fontWeight: '600',
+                            background: ri % 2 === 0 ? '#0f0f0f' : '#141414',
+                            borderBottom: '1px solid #222', whiteSpace: 'nowrap'
+                          }}>{row.label}</td>
+                          {block.tiers.map((tier, j) => {
+                            let value = '';
+                            if (row.key === 'price') {
+                              value = tier.price;
+                            } else if (row.key === 'weekly') {
+                              value = tier.altPrice.split(' or ')[0] || '—';
+                            } else if (row.key === 'annual') {
+                              value = (tier.altPrice.split(' or ')[1]) || '—';
+                            } else {
+                              value = tier[row.key];
+                            }
+                            return (
+                              <td key={j} style={{
+                                padding: '12px 16px', textAlign: 'center',
+                                color: row.highlight ? '#e0e0e0' : '#bbb',
+                                fontSize: row.highlight ? '1.15rem' : '0.85rem',
+                                fontWeight: row.highlight ? '700' : '400',
+                                background: tier.name === 'Team'
+                                  ? (ri % 2 === 0 ? '#ff6b350a' : '#ff6b3510')
+                                  : (ri % 2 === 0 ? '#0f0f0f' : '#141414'),
+                                borderBottom: '1px solid #222',
+                                borderLeft: '1px solid #222',
+                                lineHeight: '1.4'
+                              }}>
+                                {value}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div style={{
+                    display: 'flex', gap: '8px', alignItems: 'center', marginTop: '10px',
+                    color: '#666', fontSize: '0.8rem'
+                  }}>
+                    <DollarSign size={14} />
+                    <span>All plans include a free trial. No contracts — cancel anytime.</span>
+                  </div>
                 </div>
               )}
 
