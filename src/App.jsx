@@ -8,7 +8,8 @@ import Referrals from './pages/Referrals';
 import Commissions from './pages/Commissions';
 import Team from './pages/Team';
 import LeadTracker from './pages/LeadTracker';
-import { LayoutDashboard, Users, DollarSign, UserPlus, LogOut, Menu, X, FileText, CheckCircle, Banknote, Building, Upload, TrendingUp } from 'lucide-react';
+import Resources from './pages/Resources';
+import { LayoutDashboard, Users, DollarSign, UserPlus, LogOut, Menu, X, FileText, CheckCircle, Banknote, Building, Upload, TrendingUp, BookOpen } from 'lucide-react';
 
 export default function App() {
   const toast = useToast();
@@ -381,6 +382,7 @@ export default function App() {
     { id: 'leads', label: 'Lead Tracker', icon: TrendingUp },
     { id: 'referrals', label: 'Referrals', icon: Users },
     { id: 'commissions', label: 'Commissions', icon: DollarSign },
+    { id: 'resources', label: 'Resources', icon: BookOpen },
   ];
 
   if (affiliate.can_recruit) {
@@ -395,6 +397,8 @@ export default function App() {
         return <Referrals affiliate={affiliate} />;
       case 'commissions':
         return <Commissions affiliate={affiliate} />;
+      case 'resources':
+        return <Resources />;
       case 'team':
         return affiliate.can_recruit ? <Team affiliate={affiliate} readOnly={isReadOnly} /> : <Dashboard affiliate={affiliate} onAffiliateUpdate={isReadOnly ? undefined : setAffiliate} overdueLeads={overdueLeads} />;
       default:
