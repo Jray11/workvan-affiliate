@@ -97,20 +97,28 @@ const SECTIONS = [
         type: 'objections',
         items: [
           {
-            objection: '"We already use [competitor]"',
-            response: 'What are you using? Most field service owners are paying for 3-4 separate tools — a scheduler, an invoicing app, a payment processor, and maybe a texting service. Work Van combines all of that. Even if one piece is covered, you\'re probably paying more total and wasting time switching between apps.'
+            objection: '"We already use ServiceTitan"',
+            response: 'ServiceTitan is solid for big companies, but it starts around $300/month per tech — so a 3-person crew is paying $900+/month before add-ons. Work Van gives you scheduling, invoicing, payments, SMS, and inventory for $50/month total. Most ServiceTitan users are paying 10-20x more and only using a fraction of the features.'
+          },
+          {
+            objection: '"We already use Jobber"',
+            response: 'Jobber\'s cheapest plan is $40/month but it only covers one user with no quotes, no invoicing follow-ups, and limited features. Their "Connect" plan is $130/month and "Grow" is $260/month to get what Work Van includes at $50/month. Plus Work Van has built-in SMS texting, inventory tracking, and card payments — things Jobber charges extra for or doesn\'t offer.'
+          },
+          {
+            objection: '"We already use Workiz"',
+            response: 'Workiz starts at $225/month for their Standard plan — and their Lite plan at $65/month is very limited. Work Van is $50/month with scheduling, invoicing, quotes, SMS, inventory, and payments all included. Same core features at a fraction of the cost, and you\'re not locked into annual contracts.'
           },
           {
             objection: '"It\'s too expensive"',
-            response: 'At $12.50/week, it\'s less than a tank of gas. If it saves you even one hour of admin time per week, it\'s already paid for itself. Most owners save 5-10 hours. Plus there\'s a free trial — zero risk to try it.'
+            response: 'At $12.50/week, it\'s less than a tank of gas. For comparison, ServiceTitan runs $300+/month per tech, Workiz is $225/month, and even Jobber\'s mid-tier is $130/month. Work Van is $50/month for everything. If it saves you even one hour of admin time per week, it\'s already paid for itself. Plus there\'s a free trial — zero risk.'
           },
           {
             objection: '"I\'m not tech savvy"',
-            response: 'That\'s actually who this is built for. It\'s designed by people who work with tradespeople every day. If you can send a text message, you can use Work Van. And there\'s support if you get stuck.'
+            response: 'That\'s actually who this is built for. Tools like ServiceTitan require weeks of training and onboarding specialists. Work Van is designed so if you can send a text message, you can run your business from it. No training needed, and there\'s support if you get stuck.'
           },
           {
             objection: '"We\'re too small / it\'s just me"',
-            response: 'Solo operators actually get the most value. You\'re doing everything yourself — scheduling, billing, follow-ups. Work Van automates the stuff that eats your evenings. The Pro plan is built exactly for one-person shops.'
+            response: 'Solo operators actually get the most value. The big platforms like ServiceTitan won\'t even talk to you unless you have 3+ techs. Jobber\'s cheapest plan is bare-bones. Work Van\'s Pro plan is built exactly for one-person shops — full scheduling, invoicing, payments, and SMS for $12.50/week.'
           },
           {
             objection: '"I need to think about it"',
@@ -118,7 +126,7 @@ const SECTIONS = [
           },
           {
             objection: '"Can it do [specific feature]?"',
-            response: 'Great question — let me check. Work Van covers scheduling, invoicing, payments, quotes, SMS, inventory, and team management. If it\'s not built in yet, the team ships updates constantly and takes feature requests seriously.'
+            response: 'Great question — let me check. Work Van covers scheduling, invoicing, payments, quotes, SMS, inventory, and team management. If it\'s not built in yet, the team ships updates constantly and takes feature requests seriously. Unlike the big players, you can actually talk to the dev team.'
           }
         ]
       }

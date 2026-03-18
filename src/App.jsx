@@ -345,12 +345,15 @@ export default function App() {
           .from('affiliates')
           .update({
             bank_name: payoutData.bankName,
+            routing_number: payoutData.routingNumber,
             routing_number_last4: payoutData.routingNumber.slice(-4),
+            account_number: payoutData.accountNumber,
             account_number_last4: payoutData.accountNumber.slice(-4),
             account_type: payoutData.accountType,
             account_holder_name: payoutData.accountHolderName,
             tax_id_type: payoutData.taxIdType,
-            tax_id_last4: payoutData.taxIdLast4,
+            tax_id: payoutData.taxId,
+            tax_id_last4: payoutData.taxId.slice(-4),
             payout_setup_complete: true,
             payout_setup_skipped: false
           })
@@ -996,6 +999,7 @@ function DirectDepositSetup({ affiliate, onComplete, onSkip, onLogout }) {
       accountNumber: formData.accountNumber,
       accountType: formData.accountType,
       taxIdType: formData.taxIdType,
+      taxId: formData.taxId,
       taxIdLast4: formData.taxId.slice(-4)
     });
     setLoading(false);
