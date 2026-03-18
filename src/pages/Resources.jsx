@@ -98,7 +98,7 @@ const SECTIONS = [
         items: [
           {
             objection: '"We already use ServiceTitan"',
-            response: 'ServiceTitan is solid for big companies, but it starts around $300/month per tech — so a 3-person crew is paying $900+/month before add-ons. Work Van gives you scheduling, invoicing, payments, SMS, and inventory for $50/month total. Most ServiceTitan users are paying 10-20x more and only using a fraction of the features.'
+            response: 'ServiceTitan is solid for big companies, but it starts around $300/month per tech — so a 3-person crew is paying $900+/month before add-ons. Work Van starts at $50/month and even with additional users at $5/each, a 3-person crew is $60/month. Most ServiceTitan users are paying 10-15x more and only using a fraction of the features.'
           },
           {
             objection: '"We already use Jobber"',
@@ -106,11 +106,11 @@ const SECTIONS = [
           },
           {
             objection: '"We already use Workiz"',
-            response: 'Workiz starts at $225/month for their Standard plan — and their Lite plan at $65/month is very limited. Work Van is $50/month with scheduling, invoicing, quotes, SMS, inventory, and payments all included. Same core features at a fraction of the cost, and you\'re not locked into annual contracts.'
+            response: 'Workiz starts at $225/month for their Standard plan — and their Lite plan at $65/month is very limited. Work Van starts at $50/month with scheduling, invoicing, quotes, SMS, inventory, and payments all included. Additional users are just $5/each. Same core features at a fraction of the cost, and you\'re not locked into annual contracts.'
           },
           {
             objection: '"It\'s too expensive"',
-            response: 'At $12.50/week, it\'s less than a tank of gas. For comparison, ServiceTitan runs $300+/month per tech, Workiz is $225/month, and even Jobber\'s mid-tier is $130/month. Work Van is $50/month for everything. If it saves you even one hour of admin time per week, it\'s already paid for itself. Plus there\'s a free trial — zero risk.'
+            response: 'At $12.50/week, it\'s less than a tank of gas. For comparison, ServiceTitan runs $300+/month per tech, Workiz is $225/month, and even Jobber\'s mid-tier is $130/month. Work Van starts at $50/month with additional users at just $5/each. If it saves you even one hour of admin time per week, it\'s already paid for itself. Plus there\'s a free trial — zero risk.'
           },
           {
             objection: '"I\'m not tech savvy"',
@@ -118,7 +118,7 @@ const SECTIONS = [
           },
           {
             objection: '"We\'re too small / it\'s just me"',
-            response: 'Solo operators actually get the most value. The big platforms like ServiceTitan won\'t even talk to you unless you have 3+ techs. Jobber\'s cheapest plan is bare-bones. Work Van\'s Pro plan is built exactly for one-person shops — full scheduling, invoicing, payments, and SMS for $12.50/week.'
+            response: 'Solo operators actually get the most value. The big platforms like ServiceTitan won\'t even talk to you unless you have 3+ techs. Jobber\'s cheapest plan is bare-bones. Work Van\'s Pro plan is built exactly for one-person shops — full scheduling, invoicing, payments, and SMS starting at $12.50/week. And when you grow, adding users is just $5/each.'
           },
           {
             objection: '"I need to think about it"',
