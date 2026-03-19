@@ -10,7 +10,8 @@ import Team from './pages/Team';
 import LeadTracker from './pages/LeadTracker';
 import Resources from './pages/Resources';
 import Announcements from './pages/Announcements';
-import { LayoutDashboard, Users, DollarSign, UserPlus, LogOut, Menu, X, FileText, CheckCircle, Banknote, Building, Upload, TrendingUp, BookOpen, Bell } from 'lucide-react';
+import Messages from './pages/Messages';
+import { LayoutDashboard, Users, DollarSign, UserPlus, LogOut, Menu, X, FileText, CheckCircle, Banknote, Building, Upload, TrendingUp, BookOpen, Bell, MessageSquare } from 'lucide-react';
 
 export default function App() {
   const toast = useToast();
@@ -24,6 +25,7 @@ export default function App() {
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [overdueLeads, setOverdueLeads] = useState(0);
   const [unreadAnnouncements, setUnreadAnnouncements] = useState(0);
+  const [unreadMessages, setUnreadMessages] = useState(0);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -223,6 +225,33 @@ export default function App() {
     setAffiliate(affiliateData);
     loadOverdueLeads(affiliateData.id);
     loadUnreadAnnouncements(affiliateData);
+    loadUnreadMessages(affiliateData);
+  };
+
+  const loadUnreadMessages = async (affiliateData) => {
+    try {
+      const { data: convos } = await supabase
+        .from('affiliate_conversations')
+        .select('id, updated_at')
+        .contains('participant_ids', [affiliateData.id]);
+
+      if (!convos || convos.length === 0) { setUnreadMessages(0); return; }
+
+      const { data: reads } = await supabase
+        .from('affiliate_message_reads')
+        .select('conversation_id, last_read_at')
+        .eq('affiliate_id', affiliateData.id);
+
+      const readMap = {};
+      (reads || []).forEach(r => { readMap[r.conversation_id] = new Date(r.last_read_at); });
+
+      let unread = 0;
+      convos.forEach(c => {
+        const lastRead = readMap[c.id];
+        if (!lastRead || new Date(c.updated_at) > lastRead) unread++;
+      });
+      setUnreadMessages(unread);
+    } catch {}
   };
 
   const loadAffiliate = async (userId) => {
@@ -430,6 +459,7 @@ export default function App() {
     { id: 'referrals', label: 'Referrals', icon: Users },
     { id: 'commissions', label: 'Commissions', icon: DollarSign },
     { id: 'resources', label: 'Resources', icon: BookOpen },
+    { id: 'messages', label: 'Messages', icon: MessageSquare },
     { id: 'announcements', label: 'Announcements', icon: Bell },
   ];
 
@@ -447,6 +477,8 @@ export default function App() {
         return <Commissions affiliate={affiliate} />;
       case 'resources':
         return <Resources />;
+      case 'messages':
+        return <Messages affiliate={affiliate} />;
       case 'announcements':
         return <Announcements affiliate={affiliate} onRead={() => setUnreadAnnouncements(prev => Math.max(0, prev - 1))} />;
       case 'team':
@@ -583,6 +615,21 @@ export default function App() {
                   textAlign: 'center'
                 }}>
                   {overdueLeads}
+                </span>
+              )}
+              {item.id === 'messages' && unreadMessages > 0 && (
+                <span style={{
+                  marginLeft: 'auto',
+                  background: '#3498db',
+                  color: '#fff',
+                  fontSize: '0.7rem',
+                  fontWeight: '700',
+                  padding: '0.15rem 0.45rem',
+                  borderRadius: '10px',
+                  minWidth: '18px',
+                  textAlign: 'center'
+                }}>
+                  {unreadMessages}
                 </span>
               )}
               {item.id === 'announcements' && unreadAnnouncements > 0 && (
@@ -732,6 +779,21 @@ export default function App() {
                   textAlign: 'center'
                 }}>
                   {overdueLeads}
+                </span>
+              )}
+              {item.id === 'messages' && unreadMessages > 0 && (
+                <span style={{
+                  marginLeft: 'auto',
+                  background: '#3498db',
+                  color: '#fff',
+                  fontSize: '0.7rem',
+                  fontWeight: '700',
+                  padding: '0.15rem 0.45rem',
+                  borderRadius: '10px',
+                  minWidth: '18px',
+                  textAlign: 'center'
+                }}>
+                  {unreadMessages}
                 </span>
               )}
               {item.id === 'announcements' && unreadAnnouncements > 0 && (
