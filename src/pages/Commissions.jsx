@@ -1,19 +1,39 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { useToast } from '../ToastContext';
-import { DollarSign, CheckCircle, Clock, Calendar, ChevronDown, ChevronUp, Download } from 'lucide-react';
+import { DollarSign, CheckCircle, Clock, Calendar, ChevronDown, ChevronUp, Download, Send, Users, AlertCircle, Info } from 'lucide-react';
 import { CommissionsSkeleton } from '../Skeleton';
+
+const MINIMUM_PAYOUT = 50;
+const EARLY_PAYOUT_FEE = 5; // $5 flat fee for early payout requests
 
 export default function Commissions({ affiliate }) {
   const toast = useToast();
   const [commissions, setCommissions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all'); // 'all', 'owed', 'paid'
+  const [filter, setFilter] = useState('all');
   const [expandedId, setExpandedId] = useState(null);
+  const [showPayoutModal, setShowPayoutModal] = useState(false);
+  const [payoutRequests, setPayoutRequests] = useState([]);
+  const [requesting, setRequesting] = useState(false);
+
+  // Team tab for managers/directors
+  const isManager = affiliate.tier === 'recruiter' || affiliate.tier === 'director';
+  const [activeTab, setActiveTab] = useState('my-commissions');
+  const [teamCommissions, setTeamCommissions] = useState([]);
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [teamLoading, setTeamLoading] = useState(false);
 
   useEffect(() => {
     loadCommissions();
+    loadPayoutRequests();
   }, [affiliate.id]);
+
+  useEffect(() => {
+    if (activeTab === 'team' && teamCommissions.length === 0 && !teamLoading) {
+      loadTeamCommissions();
+    }
+  }, [activeTab]);
 
   const loadCommissions = async () => {
     try {
@@ -35,6 +55,111 @@ export default function Commissions({ affiliate }) {
     }
   };
 
+  const loadPayoutRequests = async () => {
+    try {
+      const { data } = await supabase
+        .from('affiliate_payout_requests')
+        .select('*')
+        .eq('affiliate_id', affiliate.id)
+        .order('requested_at', { ascending: false });
+      setPayoutRequests(data || []);
+    } catch {}
+  };
+
+  const loadTeamCommissions = async () => {
+    setTeamLoading(true);
+    try {
+      // Get direct team members
+      const { data: members } = await supabase
+        .from('affiliates')
+        .select('id, name, code, tier, commission_model, commission_rate')
+        .eq('parent_affiliate_id', affiliate.id)
+        .order('name');
+
+      if (!members || members.length === 0) {
+        setTeamMembers([]);
+        setTeamCommissions([]);
+        setTeamLoading(false);
+        return;
+      }
+
+      const memberIds = members.map(m => m.id);
+
+      // For directors, also get sub-affiliates under team leaders
+      let allIds = [...memberIds];
+      if (affiliate.tier === 'director') {
+        const recruiterIds = members.filter(m => m.tier === 'recruiter').map(m => m.id);
+        if (recruiterIds.length > 0) {
+          const { data: subs } = await supabase
+            .from('affiliates')
+            .select('id, name, code, tier, commission_model, commission_rate, parent_affiliate_id')
+            .in('parent_affiliate_id', recruiterIds)
+            .order('name');
+          if (subs) {
+            members.push(...subs);
+            allIds.push(...subs.map(s => s.id));
+          }
+        }
+      }
+
+      // Get commissions for all team members
+      const { data: comms } = await supabase
+        .from('affiliate_commissions')
+        .select(`
+          *,
+          companies (id, name)
+        `)
+        .in('affiliate_id', allIds)
+        .order('period_month', { ascending: false })
+        .limit(200);
+
+      setTeamMembers(members);
+      setTeamCommissions(comms || []);
+    } catch (error) {
+      console.error('Error loading team commissions:', error);
+      toast.error('Failed to load team data');
+    } finally {
+      setTeamLoading(false);
+    }
+  };
+
+  const requestEarlyPayout = async () => {
+    if (totalOwed < MINIMUM_PAYOUT) {
+      toast.error(`Minimum payout is ${formatCurrency(MINIMUM_PAYOUT)}`);
+      return;
+    }
+
+    // Check if there's already a pending request
+    const hasPending = payoutRequests.some(r => r.status === 'pending');
+    if (hasPending) {
+      toast.error('You already have a pending payout request');
+      return;
+    }
+
+    setRequesting(true);
+    try {
+      const netAmount = totalOwed - EARLY_PAYOUT_FEE;
+      const { error } = await supabase.from('affiliate_payout_requests').insert({
+        affiliate_id: affiliate.id,
+        amount: totalOwed,
+        fee: EARLY_PAYOUT_FEE,
+        net_amount: netAmount,
+        type: 'early',
+        status: 'pending'
+      });
+
+      if (error) throw error;
+
+      setShowPayoutModal(false);
+      loadPayoutRequests();
+      toast.success('Early payout request submitted');
+    } catch (error) {
+      toast.error('Failed to submit request: ' + error.message);
+    } finally {
+      setRequesting(false);
+    }
+  };
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -47,32 +172,55 @@ export default function Commissions({ affiliate }) {
     return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
   };
 
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    return new Date(dateStr).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  };
+
   const filteredCommissions = commissions.filter(c => {
     if (filter === 'all') return true;
     return c.status === filter;
   });
 
-  const MINIMUM_PAYOUT = 50;
   const totalOwed = commissions.filter(c => c.status === 'owed').reduce((sum, c) => sum + parseFloat(c.commission_amount || 0), 0);
   const totalPaid = commissions.filter(c => c.status === 'paid').reduce((sum, c) => sum + parseFloat(c.commission_amount || 0), 0);
+  const hasPendingRequest = payoutRequests.some(r => r.status === 'pending');
+
+  // Determine next payout date (1st of next month)
+  const now = new Date();
+  const nextPayout = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const nextPayoutStr = nextPayout.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
   // Group by month for display
   const groupedByMonth = {};
   filteredCommissions.forEach(comm => {
     const month = comm.period_month;
-    if (!groupedByMonth[month]) {
-      groupedByMonth[month] = [];
-    }
+    if (!groupedByMonth[month]) groupedByMonth[month] = [];
     groupedByMonth[month].push(comm);
   });
 
+  // Team data aggregation
+  const teamMemberStats = teamMembers.map(member => {
+    const memberComms = teamCommissions.filter(c => c.affiliate_id === member.id);
+    const owed = memberComms.filter(c => c.status === 'owed').reduce((s, c) => s + parseFloat(c.commission_amount || 0), 0);
+    const paid = memberComms.filter(c => c.status === 'paid').reduce((s, c) => s + parseFloat(c.commission_amount || 0), 0);
+    const parentName = member.parent_affiliate_id && member.parent_affiliate_id !== affiliate.id
+      ? teamMembers.find(m => m.id === member.parent_affiliate_id)?.name
+      : null;
+    return { ...member, owed, paid, total: owed + paid, commissionCount: memberComms.length, parentName };
+  });
+
+  const teamTotalOwed = teamMemberStats.reduce((s, m) => s + m.owed, 0);
+  const teamTotalPaid = teamMemberStats.reduce((s, m) => s + m.paid, 0);
+
   const exportCSV = () => {
     if (filteredCommissions.length === 0) return;
-    const rows = [['Period', 'Company', 'Revenue', 'Commission', 'Status', 'Paid Date']];
+    const rows = [['Period', 'Company', 'Type', 'Revenue', 'Commission', 'Status', 'Paid Date']];
     filteredCommissions.forEach(c => {
       rows.push([
         formatMonth(c.period_month),
         c.companies?.name || 'Account',
+        c.commission_type || 'recurring',
         c.company_revenue || '',
         c.commission_amount,
         c.status === 'paid' ? 'Paid' : 'Pending',
@@ -95,334 +243,547 @@ export default function Commissions({ affiliate }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '2rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
         <div>
-          <h1 style={{
-            fontSize: '1.75rem',
-            fontWeight: '700',
-            color: '#e0e0e0',
-            marginBottom: '0.5rem'
-          }}>
-            Commission History
+          <h1 style={{ fontSize: '1.75rem', fontWeight: '700', color: '#e0e0e0', marginBottom: '0.5rem' }}>
+            Commissions & Payouts
           </h1>
           <p style={{ color: '#888' }}>
-            Your earnings from referred accounts
+            Your earnings and payout history
           </p>
         </div>
-        {commissions.length > 0 && (
-          <button
-            onClick={exportCSV}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              padding: '0.6rem 1.25rem',
-              background: '#2a2a2a',
-              border: '1px solid #3a3a3a',
-              borderRadius: '8px',
-              color: '#e0e0e0',
-              fontSize: '0.85rem',
-              fontWeight: '600',
-              cursor: 'pointer'
-            }}
-          >
-            <Download size={16} />
-            Export CSV
-          </button>
-        )}
-      </div>
-
-      {/* Summary Cards */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-        gap: '1rem',
-        marginBottom: '2rem'
-      }}>
-        <div style={{
-          background: '#1a1a1a',
-          borderRadius: '10px',
-          padding: '1.25rem',
-          border: '1px solid #2a2a2a',
-          borderLeft: '4px solid #f39c12'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-            <Clock size={18} color="#f39c12" />
-            <span style={{ color: '#888', fontSize: '0.8rem' }}>Pending Payout</span>
-          </div>
-          <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#f39c12', fontFamily: "'JetBrains Mono', monospace" }}>
-            {formatCurrency(totalOwed)}
-          </div>
-          <div style={{ color: '#888', fontSize: '0.75rem', marginTop: '0.25rem' }}>
-            {totalOwed >= MINIMUM_PAYOUT
-              ? 'Ready for payout'
-              : `$${MINIMUM_PAYOUT} minimum \u2014 rolls over to next period`}
-          </div>
-        </div>
-
-        <div style={{
-          background: '#1a1a1a',
-          borderRadius: '10px',
-          padding: '1.25rem',
-          border: '1px solid #2a2a2a',
-          borderLeft: '4px solid #4ecca3'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-            <CheckCircle size={18} color="#4ecca3" />
-            <span style={{ color: '#888', fontSize: '0.8rem' }}>Total Paid</span>
-          </div>
-          <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#4ecca3', fontFamily: "'JetBrains Mono', monospace" }}>
-            {formatCurrency(totalPaid)}
-          </div>
-        </div>
-
-        <div style={{
-          background: '#1a1a1a',
-          borderRadius: '10px',
-          padding: '1.25rem',
-          border: '1px solid #2a2a2a',
-          borderLeft: '4px solid #3498db'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-            <DollarSign size={18} color="#3498db" />
-            <span style={{ color: '#888', fontSize: '0.8rem' }}>All Time</span>
-          </div>
-          <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#3498db', fontFamily: "'JetBrains Mono', monospace" }}>
-            {formatCurrency(totalOwed + totalPaid)}
-          </div>
-        </div>
-      </div>
-
-      {/* Filter */}
-      <div style={{
-        display: 'flex',
-        gap: '0.5rem',
-        marginBottom: '1.5rem',
-        flexWrap: 'wrap'
-      }}>
-        {['all', 'owed', 'paid'].map(f => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            style={{
-              padding: '0.6rem 1.25rem',
-              background: filter === f ? '#ff6b35' : '#2a2a2a',
-              border: 'none',
-              borderRadius: '8px',
-              color: filter === f ? '#fff' : '#888',
-              fontWeight: '600',
-              cursor: 'pointer',
-              fontSize: '0.85rem',
-              textTransform: 'capitalize'
-            }}
-          >
-            {f === 'all' ? 'All' : f === 'owed' ? 'Pending' : 'Paid'}
-          </button>
-        ))}
-      </div>
-
-      {/* Commissions List */}
-      {Object.keys(groupedByMonth).length === 0 ? (
-        <div style={{
-          background: '#1a1a1a',
-          borderRadius: '12px',
-          padding: '3rem',
-          textAlign: 'center',
-          border: '1px solid #2a2a2a'
-        }}>
-          <DollarSign size={48} style={{ color: '#444', marginBottom: '1rem' }} />
-          <h3 style={{ color: '#888', marginBottom: '0.5rem' }}>No commissions yet</h3>
-          <p style={{ color: '#666', fontSize: '0.9rem' }}>
-            Commissions will appear here when your referred accounts are billed.
-          </p>
-        </div>
-      ) : (
-        Object.entries(groupedByMonth).map(([month, monthCommissions]) => {
-          const monthTotal = monthCommissions.reduce((sum, c) => sum + parseFloat(c.commission_amount || 0), 0);
-          const allPaid = monthCommissions.every(c => c.status === 'paid');
-          const allOwed = monthCommissions.every(c => c.status === 'owed');
-
-          return (
-            <div
-              key={month}
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {commissions.length > 0 && (
+            <button
+              onClick={exportCSV}
               style={{
-                background: '#1a1a1a',
-                borderRadius: '12px',
-                border: '1px solid #2a2a2a',
-                marginBottom: '1rem',
-                overflow: 'hidden'
+                display: 'flex', alignItems: 'center', gap: '0.5rem',
+                padding: '0.6rem 1.25rem', background: '#2a2a2a', border: '1px solid #3a3a3a',
+                borderRadius: '8px', color: '#e0e0e0', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer'
               }}
             >
-              {/* Month Header */}
+              <Download size={16} /> Export CSV
+            </button>
+          )}
+          {totalOwed >= MINIMUM_PAYOUT && !hasPendingRequest && (
+            <button
+              onClick={() => setShowPayoutModal(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.5rem',
+                padding: '0.6rem 1.25rem', background: '#ff6b35', border: 'none',
+                borderRadius: '8px', color: '#fff', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer'
+              }}
+            >
+              <Send size={16} /> Request Early Payout
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Tabs for managers/directors */}
+      {isManager && (
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
+          <button
+            onClick={() => setActiveTab('my-commissions')}
+            style={{
+              padding: '0.6rem 1.25rem',
+              background: activeTab === 'my-commissions' ? '#ff6b35' : '#2a2a2a',
+              border: 'none', borderRadius: '8px',
+              color: activeTab === 'my-commissions' ? '#fff' : '#888',
+              fontWeight: '600', cursor: 'pointer', fontSize: '0.85rem'
+            }}
+          >
+            My Commissions
+          </button>
+          <button
+            onClick={() => setActiveTab('team')}
+            style={{
+              padding: '0.6rem 1.25rem',
+              background: activeTab === 'team' ? '#ff6b35' : '#2a2a2a',
+              border: 'none', borderRadius: '8px',
+              color: activeTab === 'team' ? '#fff' : '#888',
+              fontWeight: '600', cursor: 'pointer', fontSize: '0.85rem',
+              display: 'flex', alignItems: 'center', gap: '0.4rem'
+            }}
+          >
+            <Users size={16} /> Team Earnings
+          </button>
+        </div>
+      )}
+
+      {/* TEAM TAB */}
+      {activeTab === 'team' && isManager ? (
+        <div>
+          {teamLoading ? (
+            <div style={{ padding: '3rem', textAlign: 'center', color: '#888' }}>Loading team data...</div>
+          ) : teamMembers.length === 0 ? (
+            <div style={{
+              background: '#1a1a1a', borderRadius: '12px', padding: '3rem', textAlign: 'center', border: '1px solid #2a2a2a'
+            }}>
+              <Users size={48} style={{ color: '#444', marginBottom: '1rem' }} />
+              <h3 style={{ color: '#888' }}>No team members yet</h3>
+            </div>
+          ) : (
+            <>
+              {/* Team summary cards */}
               <div style={{
-                padding: '1rem 1.25rem',
-                borderBottom: '1px solid #2a2a2a',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                background: '#151515'
+                display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                gap: '1rem', marginBottom: '2rem'
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <Calendar size={18} color="#888" />
-                  <span style={{ color: '#e0e0e0', fontWeight: '600' }}>{formatMonth(month)}</span>
+                <div style={{
+                  background: '#1a1a1a', borderRadius: '10px', padding: '1.25rem',
+                  border: '1px solid #2a2a2a', borderLeft: '4px solid #f39c12'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    <Clock size={18} color="#f39c12" />
+                    <span style={{ color: '#888', fontSize: '0.8rem' }}>Team Pending</span>
+                  </div>
+                  <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#f39c12', fontFamily: "'JetBrains Mono', monospace" }}>
+                    {formatCurrency(teamTotalOwed)}
+                  </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  <span style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.35rem',
-                    padding: '0.35rem 0.75rem',
-                    background: allPaid ? '#4ecca320' : allOwed ? '#f39c1220' : '#88888820',
-                    color: allPaid ? '#4ecca3' : allOwed ? '#f39c12' : '#888',
-                    borderRadius: '6px',
-                    fontSize: '0.75rem',
-                    fontWeight: '600'
-                  }}>
-                    {allPaid ? <CheckCircle size={12} /> : <Clock size={12} />}
-                    {allPaid ? 'Paid' : allOwed ? 'Pending' : 'Mixed'}
-                  </span>
-                  <span style={{
-                    color: '#4ecca3',
-                    fontWeight: '700',
-                    fontFamily: "'JetBrains Mono', monospace"
-                  }}>
-                    {formatCurrency(monthTotal)}
-                  </span>
+                <div style={{
+                  background: '#1a1a1a', borderRadius: '10px', padding: '1.25rem',
+                  border: '1px solid #2a2a2a', borderLeft: '4px solid #4ecca3'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    <CheckCircle size={18} color="#4ecca3" />
+                    <span style={{ color: '#888', fontSize: '0.8rem' }}>Team Paid</span>
+                  </div>
+                  <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#4ecca3', fontFamily: "'JetBrains Mono', monospace" }}>
+                    {formatCurrency(teamTotalPaid)}
+                  </div>
+                </div>
+                <div style={{
+                  background: '#1a1a1a', borderRadius: '10px', padding: '1.25rem',
+                  border: '1px solid #2a2a2a', borderLeft: '4px solid #3498db'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    <Users size={18} color="#3498db" />
+                    <span style={{ color: '#888', fontSize: '0.8rem' }}>Team Members</span>
+                  </div>
+                  <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#3498db' }}>
+                    {teamMembers.length}
+                  </div>
                 </div>
               </div>
 
-              {/* Commission Items */}
-              <div style={{ padding: '0.5rem' }}>
-                {monthCommissions.map(comm => {
-                  const isExpanded = expandedId === comm.id;
-                  const rate = comm.company_revenue > 0
-                    ? ((parseFloat(comm.commission_amount) / parseFloat(comm.company_revenue)) * 100).toFixed(1)
-                    : null;
-
-                  return (
-                    <div key={comm.id}>
-                      <div
-                        onClick={() => setExpandedId(isExpanded ? null : comm.id)}
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          padding: '0.75rem',
-                          borderRadius: '8px',
-                          marginBottom: '0.25rem',
-                          cursor: 'pointer',
-                          transition: 'background 0.15s',
-                          background: isExpanded ? '#0a0a0a' : 'transparent'
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          {isExpanded ? <ChevronUp size={14} color="#666" /> : <ChevronDown size={14} color="#666" />}
-                          <div>
-                            <div style={{ color: '#e0e0e0', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                              {comm.companies?.name || 'Account'}
-                              {comm.commission_type === 'deal_bonus' && (
-                                <span style={{
-                                  padding: '0.1rem 0.4rem',
-                                  background: '#4ecca320',
-                                  color: '#4ecca3',
-                                  borderRadius: '4px',
-                                  fontSize: '0.65rem',
-                                  fontWeight: '600'
-                                }}>
-                                  DEAL BONUS
-                                </span>
-                              )}
-                              {comm.commission_type === 'spif' && (
-                                <span style={{
-                                  padding: '0.1rem 0.4rem',
-                                  background: '#9b59b620',
-                                  color: '#9b59b6',
-                                  borderRadius: '4px',
-                                  fontSize: '0.65rem',
-                                  fontWeight: '600'
-                                }}>
-                                  SPIF
-                                </span>
-                              )}
-                            </div>
-                            {comm.notes && (
-                              <div style={{ color: '#666', fontSize: '0.8rem' }}>{comm.notes}</div>
-                            )}
+              {/* Team member earnings table */}
+              <div style={{
+                background: '#1a1a1a', borderRadius: '12px', border: '1px solid #2a2a2a', overflow: 'hidden'
+              }}>
+                <div style={{
+                  padding: '1rem 1.25rem', borderBottom: '1px solid #2a2a2a', background: '#151515',
+                  display: 'flex', alignItems: 'center', gap: '0.5rem'
+                }}>
+                  <Users size={18} color="#888" />
+                  <span style={{ color: '#e0e0e0', fontWeight: '600' }}>Team Member Earnings</span>
+                </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid #2a2a2a' }}>
+                      <th style={{ textAlign: 'left', padding: '0.75rem 1rem', color: '#888', fontWeight: '500', fontSize: '0.8rem' }}>Name</th>
+                      <th style={{ textAlign: 'left', padding: '0.75rem 0.5rem', color: '#888', fontWeight: '500', fontSize: '0.8rem' }}>Role</th>
+                      <th style={{ textAlign: 'right', padding: '0.75rem 0.5rem', color: '#888', fontWeight: '500', fontSize: '0.8rem' }}>Rate</th>
+                      <th style={{ textAlign: 'right', padding: '0.75rem 0.5rem', color: '#888', fontWeight: '500', fontSize: '0.8rem' }}>Pending</th>
+                      <th style={{ textAlign: 'right', padding: '0.75rem 0.5rem', color: '#888', fontWeight: '500', fontSize: '0.8rem' }}>Paid</th>
+                      <th style={{ textAlign: 'right', padding: '0.75rem 1rem', color: '#888', fontWeight: '500', fontSize: '0.8rem' }}>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {teamMemberStats
+                      .sort((a, b) => b.total - a.total)
+                      .map(member => (
+                      <tr key={member.id} style={{ borderBottom: '1px solid #2a2a2a' }}>
+                        <td style={{ padding: '0.75rem 1rem' }}>
+                          <div style={{ color: '#e0e0e0', fontWeight: '600', fontSize: '0.9rem' }}>{member.name}</div>
+                          <div style={{ color: '#666', fontSize: '0.75rem' }}>
+                            {member.code}
+                            {member.parentName && <span> &middot; under {member.parentName}</span>}
                           </div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        </td>
+                        <td style={{ padding: '0.75rem 0.5rem' }}>
                           <span style={{
-                            width: '8px',
-                            height: '8px',
-                            borderRadius: '50%',
-                            background: comm.status === 'paid' ? '#4ecca3' : '#f39c12'
-                          }} />
-                          <span style={{
-                            color: comm.status === 'paid' ? '#4ecca3' : '#f39c12',
-                            fontWeight: '600',
-                            fontFamily: "'JetBrains Mono', monospace"
+                            padding: '0.15rem 0.4rem',
+                            background: member.tier === 'recruiter' ? '#9b59b620' : '#3498db20',
+                            color: member.tier === 'recruiter' ? '#9b59b6' : '#3498db',
+                            borderRadius: '4px', fontSize: '0.7rem', fontWeight: '600'
                           }}>
-                            {formatCurrency(comm.commission_amount)}
+                            {member.tier === 'recruiter' ? 'MGR' : 'AFF'}
                           </span>
-                        </div>
-                      </div>
-
-                      {isExpanded && (
-                        <div style={{
-                          margin: '0 0.75rem 0.5rem',
-                          padding: '0.75rem 1rem',
-                          background: '#0a0a0a',
-                          borderRadius: '6px',
-                          fontSize: '0.8rem',
-                          display: 'grid',
-                          gridTemplateColumns: '1fr 1fr',
-                          gap: '0.5rem 1.5rem'
-                        }}>
-                          {comm.company_revenue > 0 && (
-                            <>
-                              <div>
-                                <div style={{ color: '#666', marginBottom: '0.15rem' }}>Account Revenue</div>
-                                <div style={{ color: '#e0e0e0', fontFamily: "'JetBrains Mono', monospace" }}>
-                                  {formatCurrency(comm.company_revenue)}
-                                </div>
-                              </div>
-                              <div>
-                                <div style={{ color: '#666', marginBottom: '0.15rem' }}>Commission Rate</div>
-                                <div style={{ color: '#e0e0e0', fontFamily: "'JetBrains Mono', monospace" }}>
-                                  {rate}%
-                                </div>
-                              </div>
-                            </>
-                          )}
-                          <div>
-                            <div style={{ color: '#666', marginBottom: '0.15rem' }}>Status</div>
-                            <div style={{ color: comm.status === 'paid' ? '#4ecca3' : '#f39c12', fontWeight: '600' }}>
-                              {comm.status === 'paid' ? 'Paid' : 'Pending'}
-                            </div>
-                          </div>
-                          {comm.paid_at && (
-                            <div>
-                              <div style={{ color: '#666', marginBottom: '0.15rem' }}>Paid On</div>
-                              <div style={{ color: '#e0e0e0' }}>
-                                {new Date(comm.paid_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-                              </div>
-                            </div>
-                          )}
-                          {comm.payment_notes && (
-                            <div style={{ gridColumn: '1 / -1' }}>
-                              <div style={{ color: '#666', marginBottom: '0.15rem' }}>Notes</div>
-                              <div style={{ color: '#e0e0e0' }}>{comm.payment_notes}</div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                        </td>
+                        <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', color: '#ff6b35', fontSize: '0.85rem', fontFamily: "'JetBrains Mono', monospace" }}>
+                          {member.commission_model === 'percentage'
+                            ? `${(member.commission_rate * 100).toFixed(0)}%`
+                            : formatCurrency(member.commission_rate)}
+                        </td>
+                        <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', color: '#f39c12', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.85rem' }}>
+                          {member.owed > 0 ? formatCurrency(member.owed) : '-'}
+                        </td>
+                        <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', color: '#4ecca3', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.85rem' }}>
+                          {member.paid > 0 ? formatCurrency(member.paid) : '-'}
+                        </td>
+                        <td style={{ padding: '0.75rem 1rem', textAlign: 'right', color: '#e0e0e0', fontWeight: '700', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.85rem' }}>
+                          {formatCurrency(member.total)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ background: '#151515' }}>
+                      <td colSpan={3} style={{ padding: '0.75rem 1rem', color: '#888', fontWeight: '600', fontSize: '0.85rem' }}>
+                        Totals
+                      </td>
+                      <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', color: '#f39c12', fontWeight: '700', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.85rem' }}>
+                        {formatCurrency(teamTotalOwed)}
+                      </td>
+                      <td style={{ padding: '0.75rem 0.5rem', textAlign: 'right', color: '#4ecca3', fontWeight: '700', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.85rem' }}>
+                        {formatCurrency(teamTotalPaid)}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'right', color: '#e0e0e0', fontWeight: '700', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.85rem' }}>
+                        {formatCurrency(teamTotalOwed + teamTotalPaid)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+      ) : (
+        /* MY COMMISSIONS TAB */
+        <>
+          {/* Payout Schedule Info */}
+          <div style={{
+            background: '#1a1a1a', borderRadius: '10px', padding: '1rem 1.25rem',
+            border: '1px solid #2a2a2a', marginBottom: '1.5rem',
+            display: 'flex', alignItems: 'flex-start', gap: '0.75rem'
+          }}>
+            <Info size={18} color="#3498db" style={{ marginTop: '2px', flexShrink: 0 }} />
+            <div style={{ fontSize: '0.85rem', color: '#aaa', lineHeight: '1.5' }}>
+              <strong style={{ color: '#e0e0e0' }}>Payout Schedule:</strong> Commissions are paid out once per month on the 1st.
+              Minimum payout is {formatCurrency(MINIMUM_PAYOUT)} — balances below this roll over.
+              {totalOwed >= MINIMUM_PAYOUT && !hasPendingRequest && (
+                <span> You can request an early payout for a {formatCurrency(EARLY_PAYOUT_FEE)} processing fee.</span>
+              )}
+              {hasPendingRequest && (
+                <span style={{ color: '#f39c12' }}> You have a pending early payout request.</span>
+              )}
+              <div style={{ color: '#666', marginTop: '0.25rem' }}>
+                Next scheduled payout: <strong style={{ color: '#4ecca3' }}>{nextPayoutStr}</strong>
               </div>
             </div>
-          );
-        })
+          </div>
+
+          {/* Summary Cards */}
+          <div style={{
+            display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gap: '1rem', marginBottom: '2rem'
+          }}>
+            <div style={{
+              background: '#1a1a1a', borderRadius: '10px', padding: '1.25rem',
+              border: '1px solid #2a2a2a', borderLeft: '4px solid #f39c12'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <Clock size={18} color="#f39c12" />
+                <span style={{ color: '#888', fontSize: '0.8rem' }}>Pending Payout</span>
+              </div>
+              <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#f39c12', fontFamily: "'JetBrains Mono', monospace" }}>
+                {formatCurrency(totalOwed)}
+              </div>
+              <div style={{ color: '#888', fontSize: '0.75rem', marginTop: '0.25rem' }}>
+                {totalOwed >= MINIMUM_PAYOUT
+                  ? 'Ready for payout'
+                  : `${formatCurrency(MINIMUM_PAYOUT)} minimum \u2014 rolls over`}
+              </div>
+            </div>
+
+            <div style={{
+              background: '#1a1a1a', borderRadius: '10px', padding: '1.25rem',
+              border: '1px solid #2a2a2a', borderLeft: '4px solid #4ecca3'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <CheckCircle size={18} color="#4ecca3" />
+                <span style={{ color: '#888', fontSize: '0.8rem' }}>Total Paid</span>
+              </div>
+              <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#4ecca3', fontFamily: "'JetBrains Mono', monospace" }}>
+                {formatCurrency(totalPaid)}
+              </div>
+            </div>
+
+            <div style={{
+              background: '#1a1a1a', borderRadius: '10px', padding: '1.25rem',
+              border: '1px solid #2a2a2a', borderLeft: '4px solid #3498db'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <DollarSign size={18} color="#3498db" />
+                <span style={{ color: '#888', fontSize: '0.8rem' }}>All Time</span>
+              </div>
+              <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#3498db', fontFamily: "'JetBrains Mono', monospace" }}>
+                {formatCurrency(totalOwed + totalPaid)}
+              </div>
+            </div>
+          </div>
+
+          {/* Payout Request History */}
+          {payoutRequests.length > 0 && (
+            <div style={{
+              background: '#1a1a1a', borderRadius: '10px', padding: '1rem 1.25rem',
+              border: '1px solid #2a2a2a', marginBottom: '1.5rem'
+            }}>
+              <h3 style={{ color: '#e0e0e0', fontSize: '0.9rem', marginBottom: '0.75rem' }}>Payout Requests</h3>
+              {payoutRequests.map(req => (
+                <div key={req.id} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '0.6rem 0', borderBottom: '1px solid #2a2a2a', flexWrap: 'wrap', gap: '0.5rem'
+                }}>
+                  <div>
+                    <div style={{ color: '#e0e0e0', fontSize: '0.85rem' }}>
+                      {formatCurrency(req.amount)} requested
+                      <span style={{ color: '#666' }}> ({formatCurrency(req.fee)} fee → {formatCurrency(req.net_amount)} net)</span>
+                    </div>
+                    <div style={{ color: '#666', fontSize: '0.75rem' }}>{formatDate(req.requested_at)}</div>
+                  </div>
+                  <span style={{
+                    padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.7rem', fontWeight: '600',
+                    background: req.status === 'pending' ? '#f39c1220' : req.status === 'approved' ? '#4ecca320' : '#e74c3c20',
+                    color: req.status === 'pending' ? '#f39c12' : req.status === 'approved' ? '#4ecca3' : '#e74c3c'
+                  }}>
+                    {req.status.toUpperCase()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Filter */}
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+            {['all', 'owed', 'paid'].map(f => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                style={{
+                  padding: '0.6rem 1.25rem',
+                  background: filter === f ? '#ff6b35' : '#2a2a2a',
+                  border: 'none', borderRadius: '8px',
+                  color: filter === f ? '#fff' : '#888',
+                  fontWeight: '600', cursor: 'pointer', fontSize: '0.85rem'
+                }}
+              >
+                {f === 'all' ? 'All' : f === 'owed' ? 'Pending' : 'Paid'}
+              </button>
+            ))}
+          </div>
+
+          {/* Commissions List */}
+          {Object.keys(groupedByMonth).length === 0 ? (
+            <div style={{
+              background: '#1a1a1a', borderRadius: '12px', padding: '3rem', textAlign: 'center', border: '1px solid #2a2a2a'
+            }}>
+              <DollarSign size={48} style={{ color: '#444', marginBottom: '1rem' }} />
+              <h3 style={{ color: '#888', marginBottom: '0.5rem' }}>No commissions yet</h3>
+              <p style={{ color: '#666', fontSize: '0.9rem' }}>
+                Commissions will appear here when your referred accounts are billed.
+              </p>
+            </div>
+          ) : (
+            Object.entries(groupedByMonth).map(([month, monthCommissions]) => {
+              const monthTotal = monthCommissions.reduce((sum, c) => sum + parseFloat(c.commission_amount || 0), 0);
+              const allPaid = monthCommissions.every(c => c.status === 'paid');
+              const allOwed = monthCommissions.every(c => c.status === 'owed');
+
+              return (
+                <div key={month} style={{
+                  background: '#1a1a1a', borderRadius: '12px', border: '1px solid #2a2a2a',
+                  marginBottom: '1rem', overflow: 'hidden'
+                }}>
+                  <div style={{
+                    padding: '1rem 1.25rem', borderBottom: '1px solid #2a2a2a',
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#151515'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <Calendar size={18} color="#888" />
+                      <span style={{ color: '#e0e0e0', fontWeight: '600' }}>{formatMonth(month)}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+                        padding: '0.35rem 0.75rem',
+                        background: allPaid ? '#4ecca320' : allOwed ? '#f39c1220' : '#88888820',
+                        color: allPaid ? '#4ecca3' : allOwed ? '#f39c12' : '#888',
+                        borderRadius: '6px', fontSize: '0.75rem', fontWeight: '600'
+                      }}>
+                        {allPaid ? <CheckCircle size={12} /> : <Clock size={12} />}
+                        {allPaid ? 'Paid' : allOwed ? 'Pending' : 'Mixed'}
+                      </span>
+                      <span style={{ color: '#4ecca3', fontWeight: '700', fontFamily: "'JetBrains Mono', monospace" }}>
+                        {formatCurrency(monthTotal)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ padding: '0.5rem' }}>
+                    {monthCommissions.map(comm => {
+                      const isExpanded = expandedId === comm.id;
+                      const rate = comm.company_revenue > 0
+                        ? ((parseFloat(comm.commission_amount) / parseFloat(comm.company_revenue)) * 100).toFixed(1)
+                        : null;
+
+                      return (
+                        <div key={comm.id}>
+                          <div
+                            onClick={() => setExpandedId(isExpanded ? null : comm.id)}
+                            style={{
+                              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                              padding: '0.75rem', borderRadius: '8px', marginBottom: '0.25rem',
+                              cursor: 'pointer', background: isExpanded ? '#0a0a0a' : 'transparent'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              {isExpanded ? <ChevronUp size={14} color="#666" /> : <ChevronDown size={14} color="#666" />}
+                              <div>
+                                <div style={{ color: '#e0e0e0', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                  {comm.companies?.name || 'Account'}
+                                  {comm.commission_type === 'deal_bonus' && (
+                                    <span style={{ padding: '0.1rem 0.4rem', background: '#4ecca320', color: '#4ecca3', borderRadius: '4px', fontSize: '0.65rem', fontWeight: '600' }}>
+                                      DEAL BONUS
+                                    </span>
+                                  )}
+                                  {comm.commission_type === 'spif' && (
+                                    <span style={{ padding: '0.1rem 0.4rem', background: '#9b59b620', color: '#9b59b6', borderRadius: '4px', fontSize: '0.65rem', fontWeight: '600' }}>
+                                      SPIF
+                                    </span>
+                                  )}
+                                </div>
+                                {comm.notes && <div style={{ color: '#666', fontSize: '0.8rem' }}>{comm.notes}</div>}
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: comm.status === 'paid' ? '#4ecca3' : '#f39c12' }} />
+                              <span style={{ color: comm.status === 'paid' ? '#4ecca3' : '#f39c12', fontWeight: '600', fontFamily: "'JetBrains Mono', monospace" }}>
+                                {formatCurrency(comm.commission_amount)}
+                              </span>
+                            </div>
+                          </div>
+
+                          {isExpanded && (
+                            <div style={{
+                              margin: '0 0.75rem 0.5rem', padding: '0.75rem 1rem', background: '#0a0a0a',
+                              borderRadius: '6px', fontSize: '0.8rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem 1.5rem'
+                            }}>
+                              {comm.company_revenue > 0 && (
+                                <>
+                                  <div>
+                                    <div style={{ color: '#666', marginBottom: '0.15rem' }}>Account Revenue</div>
+                                    <div style={{ color: '#e0e0e0', fontFamily: "'JetBrains Mono', monospace" }}>{formatCurrency(comm.company_revenue)}</div>
+                                  </div>
+                                  <div>
+                                    <div style={{ color: '#666', marginBottom: '0.15rem' }}>Commission Rate</div>
+                                    <div style={{ color: '#e0e0e0', fontFamily: "'JetBrains Mono', monospace" }}>{rate}%</div>
+                                  </div>
+                                </>
+                              )}
+                              <div>
+                                <div style={{ color: '#666', marginBottom: '0.15rem' }}>Status</div>
+                                <div style={{ color: comm.status === 'paid' ? '#4ecca3' : '#f39c12', fontWeight: '600' }}>
+                                  {comm.status === 'paid' ? 'Paid' : 'Pending'}
+                                </div>
+                              </div>
+                              {comm.paid_at && (
+                                <div>
+                                  <div style={{ color: '#666', marginBottom: '0.15rem' }}>Paid On</div>
+                                  <div style={{ color: '#e0e0e0' }}>{formatDate(comm.paid_at)}</div>
+                                </div>
+                              )}
+                              {comm.payment_notes && (
+                                <div style={{ gridColumn: '1 / -1' }}>
+                                  <div style={{ color: '#666', marginBottom: '0.15rem' }}>Notes</div>
+                                  <div style={{ color: '#e0e0e0' }}>{comm.payment_notes}</div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </>
+      )}
+
+      {/* Early Payout Request Modal */}
+      {showPayoutModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem'
+        }}>
+          <div style={{
+            background: '#1a1a1a', borderRadius: '12px', padding: '2rem',
+            maxWidth: '420px', width: '100%', border: '1px solid #3a3a3a'
+          }}>
+            <h2 style={{ color: '#e0e0e0', fontSize: '1.25rem', fontWeight: '700', marginBottom: '1rem' }}>
+              Request Early Payout
+            </h2>
+
+            <div style={{
+              background: '#242424', borderRadius: '8px', padding: '1rem', marginBottom: '1rem'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <span style={{ color: '#888' }}>Available Balance</span>
+                <span style={{ color: '#e0e0e0', fontWeight: '700', fontFamily: "'JetBrains Mono', monospace" }}>
+                  {formatCurrency(totalOwed)}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <span style={{ color: '#888' }}>Processing Fee</span>
+                <span style={{ color: '#e74c3c', fontFamily: "'JetBrains Mono', monospace" }}>
+                  -{formatCurrency(EARLY_PAYOUT_FEE)}
+                </span>
+              </div>
+              <div style={{ borderTop: '1px solid #3a3a3a', paddingTop: '0.5rem', display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#e0e0e0', fontWeight: '600' }}>You'll Receive</span>
+                <span style={{ color: '#4ecca3', fontWeight: '700', fontSize: '1.1rem', fontFamily: "'JetBrains Mono', monospace" }}>
+                  {formatCurrency(totalOwed - EARLY_PAYOUT_FEE)}
+                </span>
+              </div>
+            </div>
+
+            <div style={{
+              background: '#f39c1210', border: '1px solid #f39c1230', borderRadius: '8px',
+              padding: '0.75rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'flex-start', gap: '0.5rem'
+            }}>
+              <AlertCircle size={16} color="#f39c12" style={{ marginTop: '1px', flexShrink: 0 }} />
+              <div style={{ color: '#aaa', fontSize: '0.8rem', lineHeight: '1.4' }}>
+                Early payouts are processed within 2-3 business days. Your regular monthly payout on {nextPayoutStr} will reflect the remaining balance after this request.
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button
+                onClick={() => setShowPayoutModal(false)}
+                style={{
+                  flex: 1, padding: '0.875rem', background: '#2a2a2a', border: 'none',
+                  borderRadius: '8px', color: '#e0e0e0', fontWeight: '600', cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={requestEarlyPayout}
+                disabled={requesting}
+                style={{
+                  flex: 2, padding: '0.875rem', background: requesting ? '#666' : '#ff6b35', border: 'none',
+                  borderRadius: '8px', color: '#fff', fontWeight: '600', cursor: requesting ? 'wait' : 'pointer'
+                }}
+              >
+                {requesting ? 'Submitting...' : 'Confirm Request'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

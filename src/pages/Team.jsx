@@ -6,6 +6,7 @@ import { TeamSkeleton } from '../Skeleton';
 
 export default function Team({ affiliate, readOnly }) {
   const toast = useToast();
+  const isDirector = affiliate.tier === 'director';
   const [teamMembers, setTeamMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -23,7 +24,6 @@ export default function Team({ affiliate, readOnly }) {
   const [promotingMember, setPromotingMember] = useState(null);
 
   // Director-specific state
-  const isDirector = affiliate.tier === 'director';
   const [teamLeaderSubs, setTeamLeaderSubs] = useState({}); // { leaderId: [subs] }
   const [expandedLeaders, setExpandedLeaders] = useState({});
 
