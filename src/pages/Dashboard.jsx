@@ -502,7 +502,7 @@ export default function Dashboard({ affiliate, onAffiliateUpdate, overdueLeads =
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
               <Users size={18} color={affiliate.tier === 'director' ? '#f0a500' : '#9b59b6'} />
               <span style={{ color: '#888', fontSize: '0.8rem' }}>
-                {affiliate.tier === 'director' ? 'Team Leaders' : 'Team Size'}
+                {affiliate.tier === 'director' ? 'Direct Reports' : 'Team Size'}
               </span>
             </div>
             <div style={{ fontSize: '2rem', fontWeight: '700', color: affiliate.tier === 'director' ? '#f0a500' : '#9b59b6' }}>
@@ -644,25 +644,40 @@ export default function Dashboard({ affiliate, onAffiliateUpdate, overdueLeads =
             </div>
           </div>
         )}
-        {(affiliate.tier === 'recruiter' || affiliate.tier === 'director') && affiliate.override_rate > 0 && (
+        {affiliate.tier === 'director' && (
           <div style={{
             marginTop: '1rem',
             paddingTop: '1rem',
             borderTop: '1px solid #2a2a2a'
           }}>
-            <div style={{ color: affiliate.tier === 'director' ? '#f0a500' : '#9b59b6', fontSize: '0.85rem', fontWeight: '600' }}>
-              {affiliate.tier === 'director' ? 'Director Override' : 'Recruiter Override'}
+            <div style={{ color: '#f0a500', fontSize: '0.85rem', fontWeight: '600' }}>
+              Total Payout Allotment
+            </div>
+            <div style={{ color: '#888', fontSize: '0.85rem', marginTop: '0.25rem' }}>
+              You receive {affiliate.commission_model === 'percentage' ? `${(affiliate.commission_rate * 100).toFixed(0)}%` : formatCurrency(affiliate.commission_rate)} of revenue per referred account.
+              You control how this is split between yourself and your managers/affiliates.
+            </div>
+            {affiliate.director_max_override > 0 && (
+              <div style={{ color: '#666', fontSize: '0.8rem', marginTop: '0.5rem' }}>
+                Monthly budget cap: {formatCurrency(affiliate.director_max_override)}
+              </div>
+            )}
+          </div>
+        )}
+        {affiliate.tier === 'recruiter' && affiliate.override_rate > 0 && (
+          <div style={{
+            marginTop: '1rem',
+            paddingTop: '1rem',
+            borderTop: '1px solid #2a2a2a'
+          }}>
+            <div style={{ color: '#9b59b6', fontSize: '0.85rem', fontWeight: '600' }}>
+              Team Earnings
             </div>
             <div style={{ color: '#888', fontSize: '0.85rem', marginTop: '0.25rem' }}>
               You earn an additional {(affiliate.override_rate * 100).toFixed(0)}%{' '}
-              {affiliate.override_model === 'fixed' ? 'of sale' : "of your team's commission"}{' '}
-              when your {affiliate.tier === 'director' ? 'downline' : 'team members'} make sales.
+              {affiliate.override_model === 'fixed' ? 'of sale revenue' : "of your team's commission"}{' '}
+              when your team members make sales.
             </div>
-            {affiliate.tier === 'director' && affiliate.director_max_override > 0 && (
-              <div style={{ color: '#666', fontSize: '0.8rem', marginTop: '0.5rem' }}>
-                Max override budget: {formatCurrency(affiliate.director_max_override)}/mo
-              </div>
-            )}
           </div>
         )}
       </div>

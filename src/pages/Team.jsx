@@ -15,10 +15,12 @@ export default function Team({ affiliate, readOnly }) {
     phone: '',
     code: '',
     commission_model: 'fixed',
-    commission_rate: affiliate.can_set_sub_rates ? '5.00' : ''
+    commission_rate: affiliate.can_set_sub_rates ? '5.00' : '',
+    tier: isDirector ? 'recruiter' : 'affiliate'
   });
   const [saving, setSaving] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
+  const [promotingMember, setPromotingMember] = useState(null);
 
   // Director-specific state
   const isDirector = affiliate.tier === 'director';
@@ -133,6 +135,7 @@ export default function Team({ affiliate, readOnly }) {
         commissionRate = 5.00;
       }
 
+      const selectedTier = isDirector ? (newMember.tier || 'recruiter') : 'affiliate';
       const insertData = {
         name: newMember.name,
         email: newMember.email || null,
@@ -143,8 +146,9 @@ export default function Team({ affiliate, readOnly }) {
         parent_affiliate_id: affiliate.id,
         active: true,
         portal_enabled: true,
-        can_recruit: isDirector ? true : false,
-        tier: isDirector ? 'recruiter' : 'affiliate'
+        can_recruit: selectedTier === 'recruiter',
+        can_set_sub_rates: selectedTier === 'recruiter',
+        tier: selectedTier
       };
 
       const { error } = await supabase.from('affiliates').insert([insertData]);
@@ -152,9 +156,9 @@ export default function Team({ affiliate, readOnly }) {
       if (error) throw error;
 
       setShowAddForm(false);
-      setNewMember({ name: '', email: '', phone: '', code: '', commission_model: 'fixed', commission_rate: '5.00' });
+      setNewMember({ name: '', email: '', phone: '', code: '', commission_model: 'fixed', commission_rate: '5.00', tier: isDirector ? 'recruiter' : 'affiliate' });
       loadTeam();
-      toast.success(isDirector ? 'Team leader added' : 'Team member added');
+      toast.success(selectedTier === 'recruiter' ? 'Team leader added' : 'Affiliate added');
     } catch (error) {
       toast.error('Failed to add team member: ' + error.message);
     } finally {
@@ -172,6 +176,12 @@ export default function Team({ affiliate, readOnly }) {
       };
       if (isDirector && affiliate.can_grant_deal_bonus && editingMember.deal_bonus_amount !== undefined) {
         updateData.deal_bonus_amount = editingMember.deal_bonus_amount ? parseFloat(editingMember.deal_bonus_amount) : null;
+      }
+      // Directors can change tier (promote/demote)
+      if (isDirector && editingMember.tier) {
+        updateData.tier = editingMember.tier;
+        updateData.can_recruit = editingMember.tier === 'recruiter';
+        updateData.can_set_sub_rates = editingMember.tier === 'recruiter';
       }
       const { error } = await supabase
         .from('affiliates')
@@ -294,7 +304,7 @@ export default function Team({ affiliate, readOnly }) {
             }}
           >
             <UserPlus size={18} />
-            {isDirector ? 'Add Team Leader' : 'Add Team Member'}
+            {isDirector ? 'Add Team Member' : 'Add Team Member'}
           </button>
         )}
       </div>
@@ -315,7 +325,7 @@ export default function Team({ affiliate, readOnly }) {
               border: '1px solid #2a2a2a',
               borderLeft: '4px solid #f0a500'
             }}>
-              <div style={{ color: '#888', fontSize: '0.8rem', marginBottom: '0.25rem' }}>Team Leaders</div>
+              <div style={{ color: '#888', fontSize: '0.8rem', marginBottom: '0.25rem' }}>Direct Reports</div>
               <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#f0a500' }}>
                 {downlineTotals.teamLeaders}
               </div>
@@ -399,32 +409,46 @@ export default function Team({ affiliate, readOnly }) {
         )}
       </div>
 
-      {/* Override Info */}
-      {affiliate.override_rate > 0 && (
+      {/* Payout Info */}
+      {isDirector ? (
         <div style={{
-          background: isDirector
-            ? 'linear-gradient(135deg, #f0a50020, #e6960020)'
-            : 'linear-gradient(135deg, #9b59b620, #8e44ad20)',
+          background: 'linear-gradient(135deg, #f0a50020, #e6960020)',
           borderRadius: '10px',
           padding: '1rem',
           marginBottom: '2rem',
-          border: isDirector ? '1px solid #f0a50040' : '1px solid #9b59b640'
+          border: '1px solid #f0a50040'
         }}>
-          <div style={{ color: isDirector ? '#f0a500' : '#9b59b6', fontWeight: '600', marginBottom: '0.25rem' }}>
-            Your Override Rate
+          <div style={{ color: '#f0a500', fontWeight: '600', marginBottom: '0.25rem' }}>
+            Your Payout Allotment
+          </div>
+          <div style={{ color: '#888', fontSize: '0.9rem' }}>
+            You receive {affiliate.commission_model === 'percentage' ? `${(affiliate.commission_rate * 100).toFixed(0)}%` : formatCurrency(affiliate.commission_rate)} of revenue per referred account.
+            Set the commission rates for your managers and affiliates below — their rates come out of your allotment.
+          </div>
+          {affiliate.director_max_override > 0 && (
+            <div style={{ color: '#666', fontSize: '0.8rem', marginTop: '0.5rem' }}>
+              Monthly budget cap: {formatCurrency(affiliate.director_max_override)}
+            </div>
+          )}
+        </div>
+      ) : affiliate.override_rate > 0 ? (
+        <div style={{
+          background: 'linear-gradient(135deg, #9b59b620, #8e44ad20)',
+          borderRadius: '10px',
+          padding: '1rem',
+          marginBottom: '2rem',
+          border: '1px solid #9b59b640'
+        }}>
+          <div style={{ color: '#9b59b6', fontWeight: '600', marginBottom: '0.25rem' }}>
+            Your Team Earnings
           </div>
           <div style={{ color: '#888', fontSize: '0.9rem' }}>
             You earn {(affiliate.override_rate * 100).toFixed(0)}%{' '}
             {affiliate.override_model === 'fixed' ? 'of the sale' : "of your team member's commission"}{' '}
             when they sign up new accounts.
           </div>
-          {isDirector && affiliate.director_max_override > 0 && (
-            <div style={{ color: '#666', fontSize: '0.8rem', marginTop: '0.5rem' }}>
-              Max override budget: {formatCurrency(affiliate.director_max_override)}/mo
-            </div>
-          )}
         </div>
-      )}
+      ) : null}
 
       {/* Team Members / Team Leaders */}
       {teamMembers.length === 0 ? (
@@ -437,11 +461,11 @@ export default function Team({ affiliate, readOnly }) {
         }}>
           <Users size={48} style={{ color: '#444', marginBottom: '1rem' }} />
           <h3 style={{ color: '#888', marginBottom: '0.5rem' }}>
-            {isDirector ? 'No team leaders yet' : 'No team members yet'}
+            No team members yet
           </h3>
           <p style={{ color: '#666', fontSize: '0.9rem' }}>
             {isDirector
-              ? 'Add your first team leader to start building your sales organization!'
+              ? 'Add managers or affiliates to start building your sales organization.'
               : 'Add your first team member to start building your sales team!'}
           </p>
         </div>
@@ -500,7 +524,7 @@ export default function Team({ affiliate, readOnly }) {
                     <div>
                       <div style={{ color: '#e0e0e0', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         {member.name}
-                        {isDirector && (
+                        {isDirector && member.tier === 'recruiter' && (
                           <span style={{
                             padding: '0.15rem 0.4rem',
                             background: '#9b59b620',
@@ -509,7 +533,19 @@ export default function Team({ affiliate, readOnly }) {
                             fontSize: '0.65rem',
                             fontWeight: '600'
                           }}>
-                            TEAM LEADER
+                            MANAGER
+                          </span>
+                        )}
+                        {isDirector && member.tier === 'affiliate' && (
+                          <span style={{
+                            padding: '0.15rem 0.4rem',
+                            background: '#3498db20',
+                            color: '#3498db',
+                            borderRadius: '4px',
+                            fontSize: '0.65rem',
+                            fontWeight: '600'
+                          }}>
+                            DIRECT AFFILIATE
                           </span>
                         )}
                       </div>
@@ -537,7 +573,8 @@ export default function Team({ affiliate, readOnly }) {
                             name: member.name,
                             commission_model: member.commission_model,
                             commission_rate: member.commission_rate,
-                            deal_bonus_amount: member.deal_bonus_amount?.toString() || ''
+                            deal_bonus_amount: member.deal_bonus_amount?.toString() || '',
+                            tier: member.tier || 'affiliate'
                           })}
                           title="Edit"
                           style={{
@@ -815,7 +852,7 @@ export default function Team({ affiliate, readOnly }) {
               marginBottom: '1.5rem'
             }}>
               <h2 style={{ color: '#e0e0e0', fontSize: '1.25rem', fontWeight: '700' }}>
-                {isDirector ? 'Add Team Leader' : 'Add Team Member'}
+                Add Team Member
               </h2>
               <button
                 onClick={() => setShowAddForm(false)}
@@ -831,16 +868,51 @@ export default function Team({ affiliate, readOnly }) {
             </div>
 
             {isDirector && (
-              <div style={{
-                background: '#f0a50010',
-                border: '1px solid #f0a50030',
-                borderRadius: '8px',
-                padding: '0.75rem',
-                marginBottom: '1rem',
-                color: '#f0a500',
-                fontSize: '0.8rem'
-              }}>
-                This person will be created as a Recruiter who can add their own sub-affiliates.
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.35rem', color: '#aaa', fontSize: '0.85rem' }}>
+                  Role
+                </label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setNewMember({ ...newMember, tier: 'recruiter' })}
+                    style={{
+                      flex: 1,
+                      padding: '0.75rem',
+                      background: newMember.tier === 'recruiter' ? '#f0a500' : '#2a2a2a',
+                      border: newMember.tier === 'recruiter' ? '2px solid #f0a500' : '1px solid #3a3a3a',
+                      borderRadius: '8px',
+                      color: newMember.tier === 'recruiter' ? '#fff' : '#888',
+                      fontWeight: newMember.tier === 'recruiter' ? '600' : '400',
+                      cursor: 'pointer',
+                      fontSize: '0.85rem'
+                    }}
+                  >
+                    Manager
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewMember({ ...newMember, tier: 'affiliate' })}
+                    style={{
+                      flex: 1,
+                      padding: '0.75rem',
+                      background: newMember.tier === 'affiliate' ? '#3498db' : '#2a2a2a',
+                      border: newMember.tier === 'affiliate' ? '2px solid #3498db' : '1px solid #3a3a3a',
+                      borderRadius: '8px',
+                      color: newMember.tier === 'affiliate' ? '#fff' : '#888',
+                      fontWeight: newMember.tier === 'affiliate' ? '600' : '400',
+                      cursor: 'pointer',
+                      fontSize: '0.85rem'
+                    }}
+                  >
+                    Affiliate
+                  </button>
+                </div>
+                <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '0.35rem' }}>
+                  {newMember.tier === 'recruiter'
+                    ? 'Managers can recruit and manage their own affiliates.'
+                    : 'Affiliates report directly to you.'}
+                </div>
               </div>
             )}
 
@@ -1011,7 +1083,7 @@ export default function Team({ affiliate, readOnly }) {
                     cursor: saving ? 'wait' : 'pointer'
                   }}
                 >
-                  {saving ? 'Adding...' : (isDirector ? 'Add Team Leader' : 'Add Team Member')}
+                  {saving ? 'Adding...' : 'Add Team Member'}
                 </button>
               </div>
             </form>
@@ -1056,6 +1128,51 @@ export default function Team({ affiliate, readOnly }) {
             </div>
 
             <form onSubmit={handleUpdateMember}>
+              {/* Tier selector for directors */}
+              {isDirector && (
+                <div style={{ marginBottom: '1rem' }}>
+                  <label style={{ display: 'block', marginBottom: '0.35rem', color: '#aaa', fontSize: '0.85rem' }}>
+                    Role
+                  </label>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button
+                      type="button"
+                      onClick={() => setEditingMember({ ...editingMember, tier: 'recruiter' })}
+                      style={{
+                        flex: 1,
+                        padding: '0.6rem',
+                        background: editingMember.tier === 'recruiter' ? '#f0a500' : '#2a2a2a',
+                        border: editingMember.tier === 'recruiter' ? '2px solid #f0a500' : '1px solid #3a3a3a',
+                        borderRadius: '8px',
+                        color: editingMember.tier === 'recruiter' ? '#fff' : '#888',
+                        fontWeight: editingMember.tier === 'recruiter' ? '600' : '400',
+                        cursor: 'pointer',
+                        fontSize: '0.85rem'
+                      }}
+                    >
+                      Manager
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingMember({ ...editingMember, tier: 'affiliate' })}
+                      style={{
+                        flex: 1,
+                        padding: '0.6rem',
+                        background: editingMember.tier === 'affiliate' ? '#3498db' : '#2a2a2a',
+                        border: editingMember.tier === 'affiliate' ? '2px solid #3498db' : '1px solid #3a3a3a',
+                        borderRadius: '8px',
+                        color: editingMember.tier === 'affiliate' ? '#fff' : '#888',
+                        fontWeight: editingMember.tier === 'affiliate' ? '600' : '400',
+                        cursor: 'pointer',
+                        fontSize: '0.85rem'
+                      }}
+                    >
+                      Affiliate
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div style={{ marginBottom: '1rem' }}>
                 <label style={{ display: 'block', marginBottom: '0.35rem', color: '#aaa', fontSize: '0.85rem' }}>
                   Commission Type
