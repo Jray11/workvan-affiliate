@@ -12,7 +12,8 @@ export default function Dashboard({ affiliate, onAffiliateUpdate, overdueLeads =
     totalEarned: 0,
     totalOwed: 0,
     thisMonthEarned: 0,
-    teamSize: 0
+    teamSize: 0,
+    downlineCount: 0
   });
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -42,14 +43,25 @@ export default function Dashboard({ affiliate, onAffiliateUpdate, overdueLeads =
         .select('commission_amount, status, period_month')
         .eq('affiliate_id', affiliate.id);
 
-      // Get team size if recruiter
+      // Get team size if recruiter or director
       let teamSize = 0;
-      if (affiliate.can_recruit) {
-        const { count } = await supabase
+      let downlineCount = 0;
+      if (affiliate.tier === 'recruiter' || affiliate.tier === 'director') {
+        const { data: directTeam } = await supabase
           .from('affiliates')
-          .select('id', { count: 'exact' })
+          .select('id')
           .eq('parent_affiliate_id', affiliate.id);
-        teamSize = count || 0;
+        teamSize = directTeam?.length || 0;
+
+        // For directors, also count the full downline (team leaders' subs)
+        if (affiliate.tier === 'director' && directTeam?.length > 0) {
+          const leaderIds = directTeam.map(t => t.id);
+          const { count: subCount } = await supabase
+            .from('affiliates')
+            .select('id', { count: 'exact' })
+            .in('parent_affiliate_id', leaderIds);
+          downlineCount = subCount || 0;
+        }
       }
 
       const totalReferrals = referralStats?.total_referrals || 0;
@@ -68,7 +80,8 @@ export default function Dashboard({ affiliate, onAffiliateUpdate, overdueLeads =
         totalEarned,
         totalOwed,
         thisMonthEarned,
-        teamSize
+        teamSize,
+        downlineCount
       });
     } catch (error) {
       console.error('Error loading stats:', error);
@@ -460,23 +473,27 @@ export default function Dashboard({ affiliate, onAffiliateUpdate, overdueLeads =
           </div>
         </div>
 
-        {affiliate.can_recruit && (
+        {(affiliate.tier === 'recruiter' || affiliate.tier === 'director') && (
           <div style={{
             background: '#1a1a1a',
             borderRadius: '12px',
             padding: '1.25rem',
             border: '1px solid #2a2a2a',
-            borderLeft: '4px solid #9b59b6'
+            borderLeft: affiliate.tier === 'director' ? '4px solid #f0a500' : '4px solid #9b59b6'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-              <Users size={18} color="#9b59b6" />
-              <span style={{ color: '#888', fontSize: '0.8rem' }}>Team Size</span>
+              <Users size={18} color={affiliate.tier === 'director' ? '#f0a500' : '#9b59b6'} />
+              <span style={{ color: '#888', fontSize: '0.8rem' }}>
+                {affiliate.tier === 'director' ? 'Team Leaders' : 'Team Size'}
+              </span>
             </div>
-            <div style={{ fontSize: '2rem', fontWeight: '700', color: '#9b59b6' }}>
+            <div style={{ fontSize: '2rem', fontWeight: '700', color: affiliate.tier === 'director' ? '#f0a500' : '#9b59b6' }}>
               {stats.teamSize}
             </div>
             <div style={{ color: '#888', fontSize: '0.8rem' }}>
-              sub-affiliates
+              {affiliate.tier === 'director'
+                ? `${stats.downlineCount || 0} total downline`
+                : 'sub-affiliates'}
             </div>
           </div>
         )}
@@ -533,20 +550,25 @@ export default function Dashboard({ affiliate, onAffiliateUpdate, overdueLeads =
             </div>
           </div>
         </div>
-        {affiliate.can_recruit && affiliate.override_rate > 0 && (
+        {(affiliate.tier === 'recruiter' || affiliate.tier === 'director') && affiliate.override_rate > 0 && (
           <div style={{
             marginTop: '1rem',
             paddingTop: '1rem',
             borderTop: '1px solid #2a2a2a'
           }}>
-            <div style={{ color: '#9b59b6', fontSize: '0.85rem', fontWeight: '600' }}>
-              Recruiter Override
+            <div style={{ color: affiliate.tier === 'director' ? '#f0a500' : '#9b59b6', fontSize: '0.85rem', fontWeight: '600' }}>
+              {affiliate.tier === 'director' ? 'Director Override' : 'Recruiter Override'}
             </div>
             <div style={{ color: '#888', fontSize: '0.85rem', marginTop: '0.25rem' }}>
               You earn an additional {(affiliate.override_rate * 100).toFixed(0)}%{' '}
-              {affiliate.override_model === 'fixed' ? 'of sale' : "of your sub's commission"}{' '}
-              when your team members make sales.
+              {affiliate.override_model === 'fixed' ? 'of sale' : "of your team's commission"}{' '}
+              when your {affiliate.tier === 'director' ? 'downline' : 'team members'} make sales.
             </div>
+            {affiliate.tier === 'director' && affiliate.director_max_override > 0 && (
+              <div style={{ color: '#666', fontSize: '0.8rem', marginTop: '0.5rem' }}>
+                Max override budget: {formatCurrency(affiliate.director_max_override)}/mo
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -388,7 +388,7 @@ export default function App() {
     { id: 'resources', label: 'Resources', icon: BookOpen },
   ];
 
-  if (affiliate.can_recruit) {
+  if (affiliate.tier === 'recruiter' || affiliate.tier === 'director') {
     navItems.push({ id: 'team', label: 'My Team', icon: UserPlus });
   }
 
@@ -403,7 +403,7 @@ export default function App() {
       case 'resources':
         return <Resources />;
       case 'team':
-        return affiliate.can_recruit ? <Team affiliate={affiliate} readOnly={isReadOnly} /> : <Dashboard affiliate={affiliate} onAffiliateUpdate={isReadOnly ? undefined : setAffiliate} overdueLeads={overdueLeads} />;
+        return (affiliate.tier === 'recruiter' || affiliate.tier === 'director') ? <Team affiliate={affiliate} readOnly={isReadOnly} /> : <Dashboard affiliate={affiliate} onAffiliateUpdate={isReadOnly ? undefined : setAffiliate} overdueLeads={overdueLeads} />;
       default:
         return <Dashboard affiliate={affiliate} onAffiliateUpdate={isReadOnly ? undefined : setAffiliate} overdueLeads={overdueLeads} />;
     }
@@ -468,7 +468,21 @@ export default function App() {
           </div>
           <div style={{ color: '#e0e0e0', fontWeight: '600' }}>{affiliate.name}</div>
           <div style={{ color: '#888', fontSize: '0.8rem' }}>{affiliate.email}</div>
-          {affiliate.can_recruit && (
+          {affiliate.tier === 'director' && (
+            <div style={{
+              marginTop: '0.5rem',
+              padding: '0.2rem 0.5rem',
+              background: '#f0a50020',
+              color: '#f0a500',
+              borderRadius: '4px',
+              fontSize: '0.7rem',
+              fontWeight: '600',
+              display: 'inline-block'
+            }}>
+              SALES DIRECTOR
+            </div>
+          )}
+          {affiliate.tier === 'recruiter' && (
             <div style={{
               marginTop: '0.5rem',
               padding: '0.2rem 0.5rem',
