@@ -9,7 +9,8 @@ import Commissions from './pages/Commissions';
 import Team from './pages/Team';
 import LeadTracker from './pages/LeadTracker';
 import Resources from './pages/Resources';
-import { LayoutDashboard, Users, DollarSign, UserPlus, LogOut, Menu, X, FileText, CheckCircle, Banknote, Building, Upload, TrendingUp, BookOpen } from 'lucide-react';
+import Announcements from './pages/Announcements';
+import { LayoutDashboard, Users, DollarSign, UserPlus, LogOut, Menu, X, FileText, CheckCircle, Banknote, Building, Upload, TrendingUp, BookOpen, Bell } from 'lucide-react';
 
 export default function App() {
   const toast = useToast();
@@ -22,6 +23,7 @@ export default function App() {
   const [setupToken, setSetupToken] = useState(null);
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [overdueLeads, setOverdueLeads] = useState(0);
+  const [unreadAnnouncements, setUnreadAnnouncements] = useState(0);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -149,6 +151,47 @@ export default function App() {
     } catch {}
   };
 
+  const loadUnreadAnnouncements = async (affiliateData) => {
+    try {
+      // Get all active, non-expired announcements
+      const { data: announcements } = await supabase
+        .from('affiliate_announcements')
+        .select('id, target_tiers, target_affiliate_ids')
+        .eq('active', true)
+        .or('expires_at.is.null,expires_at.gt.' + new Date().toISOString());
+
+      if (!announcements || announcements.length === 0) {
+        setUnreadAnnouncements(0);
+        return;
+      }
+
+      // Filter for this affiliate's tier/id
+      const relevant = announcements.filter(a => {
+        const tiersEmpty = !a.target_tiers || a.target_tiers.length === 0;
+        const idsEmpty = !a.target_affiliate_ids || a.target_affiliate_ids.length === 0;
+        if (tiersEmpty && idsEmpty) return true;
+        const tierMatch = a.target_tiers?.includes(affiliateData.tier);
+        const idMatch = a.target_affiliate_ids?.includes(affiliateData.id);
+        return tierMatch || idMatch;
+      });
+
+      if (relevant.length === 0) {
+        setUnreadAnnouncements(0);
+        return;
+      }
+
+      // Get read announcements
+      const { data: reads } = await supabase
+        .from('affiliate_announcement_reads')
+        .select('announcement_id')
+        .eq('affiliate_id', affiliateData.id);
+
+      const readIds = new Set((reads || []).map(r => r.announcement_id));
+      const unread = relevant.filter(a => !readIds.has(a.id)).length;
+      setUnreadAnnouncements(unread);
+    } catch {}
+  };
+
   const checkTerminationAccess = (affiliateData) => {
     if (!affiliateData) {
       setAffiliate(null);
@@ -179,6 +222,7 @@ export default function App() {
 
     setAffiliate(affiliateData);
     loadOverdueLeads(affiliateData.id);
+    loadUnreadAnnouncements(affiliateData);
   };
 
   const loadAffiliate = async (userId) => {
@@ -386,6 +430,7 @@ export default function App() {
     { id: 'referrals', label: 'Referrals', icon: Users },
     { id: 'commissions', label: 'Commissions', icon: DollarSign },
     { id: 'resources', label: 'Resources', icon: BookOpen },
+    { id: 'announcements', label: 'Announcements', icon: Bell },
   ];
 
   if (affiliate.tier === 'recruiter' || affiliate.tier === 'director') {
@@ -402,6 +447,8 @@ export default function App() {
         return <Commissions affiliate={affiliate} />;
       case 'resources':
         return <Resources />;
+      case 'announcements':
+        return <Announcements affiliate={affiliate} onRead={() => setUnreadAnnouncements(prev => Math.max(0, prev - 1))} />;
       case 'team':
         return (affiliate.tier === 'recruiter' || affiliate.tier === 'director') ? <Team affiliate={affiliate} readOnly={isReadOnly} /> : <Dashboard affiliate={affiliate} onAffiliateUpdate={isReadOnly ? undefined : setAffiliate} overdueLeads={overdueLeads} />;
       default:
@@ -538,6 +585,21 @@ export default function App() {
                   {overdueLeads}
                 </span>
               )}
+              {item.id === 'announcements' && unreadAnnouncements > 0 && (
+                <span style={{
+                  marginLeft: 'auto',
+                  background: '#ff6b35',
+                  color: '#fff',
+                  fontSize: '0.7rem',
+                  fontWeight: '700',
+                  padding: '0.15rem 0.45rem',
+                  borderRadius: '10px',
+                  minWidth: '18px',
+                  textAlign: 'center'
+                }}>
+                  {unreadAnnouncements}
+                </span>
+              )}
             </button>
           ))}
         </nav>
@@ -670,6 +732,21 @@ export default function App() {
                   textAlign: 'center'
                 }}>
                   {overdueLeads}
+                </span>
+              )}
+              {item.id === 'announcements' && unreadAnnouncements > 0 && (
+                <span style={{
+                  marginLeft: 'auto',
+                  background: '#ff6b35',
+                  color: '#fff',
+                  fontSize: '0.7rem',
+                  fontWeight: '700',
+                  padding: '0.15rem 0.45rem',
+                  borderRadius: '10px',
+                  minWidth: '18px',
+                  textAlign: 'center'
+                }}>
+                  {unreadAnnouncements}
                 </span>
               )}
             </button>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { useToast } from '../ToastContext';
-import { Users, DollarSign, TrendingUp, Copy, Check, ExternalLink, FileText, Upload, CheckCircle, AlertCircle, QrCode, X as XIcon, Download } from 'lucide-react';
+import { Users, DollarSign, TrendingUp, Copy, Check, ExternalLink, FileText, Upload, CheckCircle, AlertCircle, QrCode, X as XIcon, Download, Zap } from 'lucide-react';
 import { DashboardSkeleton } from '../Skeleton';
 
 export default function Dashboard({ affiliate, onAffiliateUpdate, overdueLeads = 0 }) {
@@ -16,6 +16,7 @@ export default function Dashboard({ affiliate, onAffiliateUpdate, overdueLeads =
     downlineCount: 0
   });
   const [loading, setLoading] = useState(true);
+  const [activeSpifs, setActiveSpifs] = useState([]);
   const [copied, setCopied] = useState(false);
   const [w9Uploading, setW9Uploading] = useState(false);
   const [w9Error, setW9Error] = useState(null);
@@ -83,6 +84,23 @@ export default function Dashboard({ affiliate, onAffiliateUpdate, overdueLeads =
         teamSize,
         downlineCount
       });
+      // Load active SPIFs
+      const today = new Date().toISOString().split('T')[0];
+      const { data: spifs } = await supabase
+        .from('affiliate_spifs')
+        .select('*')
+        .eq('active', true)
+        .lte('start_date', today)
+        .gte('end_date', today);
+
+      const relevantSpifs = (spifs || []).filter(s => {
+        const tiersEmpty = !s.target_tiers || s.target_tiers.length === 0;
+        const idsEmpty = !s.target_affiliate_ids || s.target_affiliate_ids.length === 0;
+        if (tiersEmpty && idsEmpty) return true;
+        return s.target_tiers?.includes(affiliate.tier) || s.target_affiliate_ids?.includes(affiliate.id);
+      });
+      setActiveSpifs(relevantSpifs);
+
     } catch (error) {
       console.error('Error loading stats:', error);
       toast.error('Failed to load dashboard data');
@@ -522,6 +540,58 @@ export default function Dashboard({ affiliate, onAffiliateUpdate, overdueLeads =
         </p>
       </div>
 
+      {/* Active Promotions (SPIFs) */}
+      {activeSpifs.length > 0 && (
+        <div style={{
+          background: '#1a1a1a',
+          borderRadius: '12px',
+          padding: '1.5rem',
+          border: '1px solid #2a2a2a',
+          marginTop: '1rem'
+        }}>
+          <h3 style={{ color: '#e0e0e0', marginBottom: '1rem', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Zap size={18} color="#f7931e" />
+            Active Promotions
+          </h3>
+          <div style={{ display: 'grid', gap: '0.75rem' }}>
+            {activeSpifs.map(spif => {
+              const daysLeft = Math.ceil((new Date(spif.end_date) - new Date()) / (1000 * 60 * 60 * 24));
+              return (
+                <div key={spif.id} style={{
+                  background: 'linear-gradient(135deg, #f7931e15, #ff6b3515)',
+                  border: '1px solid #f7931e40',
+                  borderRadius: '10px',
+                  padding: '1rem'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                    <div style={{ color: '#f7931e', fontWeight: '700', fontSize: '1rem' }}>{spif.name}</div>
+                    <div style={{
+                      padding: '0.2rem 0.6rem',
+                      background: daysLeft <= 7 ? '#e74c3c30' : '#4ecca320',
+                      color: daysLeft <= 7 ? '#e74c3c' : '#4ecca3',
+                      borderRadius: '4px',
+                      fontSize: '0.75rem',
+                      fontWeight: '600'
+                    }}>
+                      {daysLeft} day{daysLeft !== 1 ? 's' : ''} left
+                    </div>
+                  </div>
+                  {spif.description && (
+                    <div style={{ color: '#888', fontSize: '0.85rem', marginBottom: '0.5rem' }}>{spif.description}</div>
+                  )}
+                  <div style={{ color: '#4ecca3', fontWeight: '700', fontSize: '1.25rem', fontFamily: "'JetBrains Mono', monospace" }}>
+                    {spif.bonus_type === 'percentage' ? `${spif.bonus_amount}%` : formatCurrency(spif.bonus_amount)}
+                    <span style={{ fontSize: '0.8rem', fontWeight: '400', color: '#888', marginLeft: '0.5rem' }}>
+                      {spif.bonus_type === 'per_signup' ? 'per signup' : spif.bonus_type === 'flat' ? 'flat bonus' : 'of revenue'}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Commission Info */}
       <div style={{
         background: '#1a1a1a',
@@ -550,6 +620,30 @@ export default function Dashboard({ affiliate, onAffiliateUpdate, overdueLeads =
             </div>
           </div>
         </div>
+        {/* Duration */}
+        {affiliate.commission_duration_months && (
+          <div style={{ marginTop: '0.75rem' }}>
+            <div style={{ color: '#888', fontSize: '0.8rem', marginBottom: '0.25rem' }}>Duration</div>
+            <div style={{ color: '#e0e0e0', fontWeight: '600' }}>
+              {affiliate.commission_duration_months} months per account
+            </div>
+          </div>
+        )}
+        {!affiliate.commission_duration_months && (
+          <div style={{ marginTop: '0.75rem' }}>
+            <div style={{ color: '#888', fontSize: '0.8rem', marginBottom: '0.25rem' }}>Duration</div>
+            <div style={{ color: '#e0e0e0', fontWeight: '600' }}>Perpetual</div>
+          </div>
+        )}
+        {/* Deal Bonus */}
+        {affiliate.deal_bonus_amount > 0 && (
+          <div style={{ marginTop: '0.75rem' }}>
+            <div style={{ color: '#888', fontSize: '0.8rem', marginBottom: '0.25rem' }}>Deal Bonus</div>
+            <div style={{ color: '#4ecca3', fontWeight: '700', fontSize: '1.1rem' }}>
+              {formatCurrency(affiliate.deal_bonus_amount)} <span style={{ fontSize: '0.8rem', fontWeight: '400', color: '#888' }}>one-time per converted account</span>
+            </div>
+          </div>
+        )}
         {(affiliate.tier === 'recruiter' || affiliate.tier === 'director') && affiliate.override_rate > 0 && (
           <div style={{
             marginTop: '1rem',

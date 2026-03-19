@@ -318,8 +318,32 @@ export default function Commissions({ affiliate }) {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                           {isExpanded ? <ChevronUp size={14} color="#666" /> : <ChevronDown size={14} color="#666" />}
                           <div>
-                            <div style={{ color: '#e0e0e0', fontSize: '0.9rem' }}>
+                            <div style={{ color: '#e0e0e0', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                               {comm.companies?.name || 'Account'}
+                              {comm.commission_type === 'deal_bonus' && (
+                                <span style={{
+                                  padding: '0.1rem 0.4rem',
+                                  background: '#4ecca320',
+                                  color: '#4ecca3',
+                                  borderRadius: '4px',
+                                  fontSize: '0.65rem',
+                                  fontWeight: '600'
+                                }}>
+                                  DEAL BONUS
+                                </span>
+                              )}
+                              {comm.commission_type === 'spif' && (
+                                <span style={{
+                                  padding: '0.1rem 0.4rem',
+                                  background: '#9b59b620',
+                                  color: '#9b59b6',
+                                  borderRadius: '4px',
+                                  fontSize: '0.65rem',
+                                  fontWeight: '600'
+                                }}>
+                                  SPIF
+                                </span>
+                              )}
                             </div>
                             {comm.notes && (
                               <div style={{ color: '#666', fontSize: '0.8rem' }}>{comm.notes}</div>

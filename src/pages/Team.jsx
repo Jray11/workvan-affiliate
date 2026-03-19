@@ -166,12 +166,16 @@ export default function Team({ affiliate, readOnly }) {
     e.preventDefault();
     setSaving(true);
     try {
+      const updateData = {
+        commission_model: editingMember.commission_model,
+        commission_rate: parseFloat(editingMember.commission_rate)
+      };
+      if (isDirector && affiliate.can_grant_deal_bonus && editingMember.deal_bonus_amount !== undefined) {
+        updateData.deal_bonus_amount = editingMember.deal_bonus_amount ? parseFloat(editingMember.deal_bonus_amount) : null;
+      }
       const { error } = await supabase
         .from('affiliates')
-        .update({
-          commission_model: editingMember.commission_model,
-          commission_rate: parseFloat(editingMember.commission_rate)
-        })
+        .update(updateData)
         .eq('id', editingMember.id);
 
       if (error) throw error;
@@ -532,7 +536,8 @@ export default function Team({ affiliate, readOnly }) {
                             id: member.id,
                             name: member.name,
                             commission_model: member.commission_model,
-                            commission_rate: member.commission_rate
+                            commission_rate: member.commission_rate,
+                            deal_bonus_amount: member.deal_bonus_amount?.toString() || ''
                           })}
                           title="Edit"
                           style={{
@@ -1091,7 +1096,7 @@ export default function Team({ affiliate, readOnly }) {
                 </div>
               </div>
 
-              <div style={{ marginBottom: '1.5rem' }}>
+              <div style={{ marginBottom: '1rem' }}>
                 <label style={{ display: 'block', marginBottom: '0.35rem', color: '#aaa', fontSize: '0.85rem' }}>
                   {editingMember.commission_model === 'fixed' ? 'Amount ($ per month)' : 'Rate (e.g., 0.10 = 10%)'}
                 </label>
@@ -1113,6 +1118,34 @@ export default function Team({ affiliate, readOnly }) {
                   }}
                 />
               </div>
+
+              {isDirector && affiliate.can_grant_deal_bonus && (
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <label style={{ display: 'block', marginBottom: '0.35rem', color: '#4ecca3', fontSize: '0.85rem' }}>
+                    Deal Bonus ($)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={editingMember.deal_bonus_amount}
+                    onChange={(e) => setEditingMember({ ...editingMember, deal_bonus_amount: e.target.value })}
+                    placeholder="0 = none"
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      background: '#2a2a2a',
+                      border: '1px solid #3a3a3a',
+                      borderRadius: '8px',
+                      color: '#e0e0e0',
+                      fontSize: '1rem'
+                    }}
+                  />
+                  <div style={{ color: '#666', fontSize: '0.8rem', marginTop: '0.35rem' }}>
+                    One-time bonus per converted account
+                  </div>
+                </div>
+              )}
 
               <div style={{ display: 'flex', gap: '0.75rem' }}>
                 <button
