@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { useToast } from '../ToastContext';
-import { DollarSign, CheckCircle, Clock, Calendar, ChevronDown, ChevronUp, Download, Send, Users, AlertCircle, Info } from 'lucide-react';
+import { DollarSign, CheckCircle, Clock, Calendar, ChevronDown, ChevronUp, Download, Send, Users, AlertCircle, Info, Building2, ArrowLeft } from 'lucide-react';
 import { CommissionsSkeleton } from '../Skeleton';
 
 const MINIMUM_PAYOUT = 50;
@@ -23,6 +23,8 @@ export default function Commissions({ affiliate }) {
   const [teamCommissions, setTeamCommissions] = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
   const [teamLoading, setTeamLoading] = useState(false);
+  const [drilldownAffiliate, setDrilldownAffiliate] = useState(null);
+  const [drilldownCommissions, setDrilldownCommissions] = useState([]);
 
   useEffect(() => {
     loadCommissions();
@@ -213,6 +215,43 @@ export default function Commissions({ affiliate }) {
   const teamTotalOwed = teamMemberStats.reduce((s, m) => s + m.owed, 0);
   const teamTotalPaid = teamMemberStats.reduce((s, m) => s + m.paid, 0);
 
+  // Per-account grouping (for "Per Account" tab and drilldowns)
+  const buildAccountStats = (comms) => {
+    const byCompany = {};
+    comms.forEach(c => {
+      const compId = c.company_id || 'unknown';
+      const compName = c.companies?.name || 'Account';
+      if (!byCompany[compId]) {
+        byCompany[compId] = { id: compId, name: compName, months: 0, totalEarned: 0, owed: 0, paid: 0, commissions: [] };
+      }
+      const amt = parseFloat(c.commission_amount || 0);
+      byCompany[compId].totalEarned += amt;
+      if (c.status === 'owed') byCompany[compId].owed += amt;
+      else byCompany[compId].paid += amt;
+      byCompany[compId].commissions.push(c);
+    });
+    // Count unique months per company
+    Object.values(byCompany).forEach(acct => {
+      const uniqueMonths = new Set(acct.commissions.filter(c => c.commission_type === 'recurring').map(c => c.period_month));
+      acct.months = uniqueMonths.size;
+    });
+    return Object.values(byCompany).sort((a, b) => b.totalEarned - a.totalEarned);
+  };
+
+  const myAccountStats = buildAccountStats(commissions);
+
+  const drilldownAccountStats = drilldownAffiliate ? buildAccountStats(drilldownCommissions) : [];
+
+  const loadDrilldown = async (member) => {
+    setDrilldownAffiliate(member);
+    const { data } = await supabase
+      .from('affiliate_commissions')
+      .select('*, companies (id, name)')
+      .eq('affiliate_id', member.id)
+      .order('period_month', { ascending: false });
+    setDrilldownCommissions(data || []);
+  };
+
   const exportCSV = () => {
     if (filteredCommissions.length === 0) return;
     const rows = [['Period', 'Company', 'Type', 'Revenue', 'Commission', 'Status', 'Paid Date']];
@@ -235,6 +274,81 @@ export default function Commissions({ affiliate }) {
     a.download = `commissions-${affiliate.code}-${filter}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const renderAccountTable = (accountStats) => {
+    if (accountStats.length === 0) {
+      return (
+        <div style={{ background: '#1a1a1a', borderRadius: '12px', padding: '3rem', textAlign: 'center', border: '1px solid #2a2a2a' }}>
+          <Building2 size={48} style={{ color: '#444', marginBottom: '1rem' }} />
+          <h3 style={{ color: '#888', marginBottom: '0.5rem' }}>No account data yet</h3>
+          <p style={{ color: '#666', fontSize: '0.9rem' }}>Earnings per account will appear here once commissions are recorded.</p>
+        </div>
+      );
+    }
+
+    const acctTotalEarned = accountStats.reduce((s, a) => s + a.totalEarned, 0);
+    const acctTotalOwed = accountStats.reduce((s, a) => s + a.owed, 0);
+
+    return (
+      <>
+        {/* Summary */}
+        <div style={{
+          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+          gap: '1rem', marginBottom: '1.5rem'
+        }}>
+          <div style={{ background: '#1a1a1a', borderRadius: '10px', padding: '1rem', border: '1px solid #2a2a2a', borderLeft: '4px solid #3498db' }}>
+            <div style={{ color: '#888', fontSize: '0.8rem', marginBottom: '0.25rem' }}>Active Accounts</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#3498db' }}>{accountStats.length}</div>
+          </div>
+          <div style={{ background: '#1a1a1a', borderRadius: '10px', padding: '1rem', border: '1px solid #2a2a2a', borderLeft: '4px solid #4ecca3' }}>
+            <div style={{ color: '#888', fontSize: '0.8rem', marginBottom: '0.25rem' }}>Total Earned</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#4ecca3', fontFamily: "'JetBrains Mono', monospace" }}>{formatCurrency(acctTotalEarned)}</div>
+          </div>
+          <div style={{ background: '#1a1a1a', borderRadius: '10px', padding: '1rem', border: '1px solid #2a2a2a', borderLeft: '4px solid #f39c12' }}>
+            <div style={{ color: '#888', fontSize: '0.8rem', marginBottom: '0.25rem' }}>Pending</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#f39c12', fontFamily: "'JetBrains Mono', monospace" }}>{formatCurrency(acctTotalOwed)}</div>
+          </div>
+        </div>
+
+        {/* Account cards */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          {accountStats.map(acct => (
+            <div key={acct.id} style={{
+              background: '#1a1a1a', borderRadius: '10px', border: '1px solid #2a2a2a', padding: '1rem 1.25rem'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+                <div>
+                  <div style={{ color: '#e0e0e0', fontWeight: '600', fontSize: '1rem' }}>{acct.name}</div>
+                  <div style={{ color: '#666', fontSize: '0.8rem' }}>{acct.months} month{acct.months !== 1 ? 's' : ''} of commissions</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ color: '#4ecca3', fontWeight: '700', fontSize: '1.1rem', fontFamily: "'JetBrains Mono', monospace" }}>
+                    {formatCurrency(acct.totalEarned)}
+                  </div>
+                  <div style={{ color: '#888', fontSize: '0.75rem' }}>total earned</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.8rem' }}>
+                <div>
+                  <span style={{ color: '#888' }}>Pending: </span>
+                  <span style={{ color: '#f39c12', fontWeight: '600', fontFamily: "'JetBrains Mono', monospace" }}>{formatCurrency(acct.owed)}</span>
+                </div>
+                <div>
+                  <span style={{ color: '#888' }}>Paid: </span>
+                  <span style={{ color: '#4ecca3', fontWeight: '600', fontFamily: "'JetBrains Mono', monospace" }}>{formatCurrency(acct.paid)}</span>
+                </div>
+                {acct.commissions.some(c => c.commission_type === 'deal_bonus') && (
+                  <span style={{ padding: '0.1rem 0.4rem', background: '#4ecca320', color: '#4ecca3', borderRadius: '4px', fontSize: '0.7rem', fontWeight: '600' }}>
+                    DEAL BONUS
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </>
+    );
   };
 
   if (loading) {
@@ -280,39 +394,32 @@ export default function Commissions({ affiliate }) {
         </div>
       </div>
 
-      {/* Tabs for managers/directors */}
-      {isManager && (
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+        {[
+          { id: 'my-commissions', label: 'By Month', icon: null },
+          { id: 'per-account', label: 'Per Account', icon: Building2 },
+          ...(isManager ? [{ id: 'team', label: 'Team Earnings', icon: Users }] : [])
+        ].map(tab => (
           <button
-            onClick={() => setActiveTab('my-commissions')}
+            key={tab.id}
+            onClick={() => { setActiveTab(tab.id); setDrilldownAffiliate(null); }}
             style={{
               padding: '0.6rem 1.25rem',
-              background: activeTab === 'my-commissions' ? '#ff6b35' : '#2a2a2a',
+              background: activeTab === tab.id ? '#ff6b35' : '#2a2a2a',
               border: 'none', borderRadius: '8px',
-              color: activeTab === 'my-commissions' ? '#fff' : '#888',
-              fontWeight: '600', cursor: 'pointer', fontSize: '0.85rem'
-            }}
-          >
-            My Commissions
-          </button>
-          <button
-            onClick={() => setActiveTab('team')}
-            style={{
-              padding: '0.6rem 1.25rem',
-              background: activeTab === 'team' ? '#ff6b35' : '#2a2a2a',
-              border: 'none', borderRadius: '8px',
-              color: activeTab === 'team' ? '#fff' : '#888',
+              color: activeTab === tab.id ? '#fff' : '#888',
               fontWeight: '600', cursor: 'pointer', fontSize: '0.85rem',
               display: 'flex', alignItems: 'center', gap: '0.4rem'
             }}
           >
-            <Users size={16} /> Team Earnings
+            {tab.icon && <tab.icon size={16} />} {tab.label}
           </button>
-        </div>
-      )}
+        ))}
+      </div>
 
       {/* TEAM TAB */}
-      {activeTab === 'team' && isManager ? (
+      {activeTab === 'team' && isManager && !drilldownAffiliate && (
         <div>
           {teamLoading ? (
             <div style={{ padding: '3rem', textAlign: 'center', color: '#888' }}>Loading team data...</div>
@@ -368,7 +475,7 @@ export default function Commissions({ affiliate }) {
                 </div>
               </div>
 
-              {/* Team member earnings table */}
+              {/* Team member earnings table — tap row to drill down */}
               <div style={{
                 background: '#1a1a1a', borderRadius: '12px', border: '1px solid #2a2a2a', overflow: 'hidden'
               }}>
@@ -378,6 +485,7 @@ export default function Commissions({ affiliate }) {
                 }}>
                   <Users size={18} color="#888" />
                   <span style={{ color: '#e0e0e0', fontWeight: '600' }}>Team Member Earnings</span>
+                  <span style={{ color: '#666', fontSize: '0.75rem', marginLeft: 'auto' }}>Tap a row to see their accounts</span>
                 </div>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
@@ -394,7 +502,9 @@ export default function Commissions({ affiliate }) {
                     {teamMemberStats
                       .sort((a, b) => b.total - a.total)
                       .map(member => (
-                      <tr key={member.id} style={{ borderBottom: '1px solid #2a2a2a' }}>
+                      <tr key={member.id} onClick={() => loadDrilldown(member)} style={{ borderBottom: '1px solid #2a2a2a', cursor: 'pointer' }}
+                        onMouseEnter={e => e.currentTarget.style.background = '#242424'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                         <td style={{ padding: '0.75rem 1rem' }}>
                           <div style={{ color: '#e0e0e0', fontWeight: '600', fontSize: '0.9rem' }}>{member.name}</div>
                           <div style={{ color: '#666', fontSize: '0.75rem' }}>
@@ -450,7 +560,30 @@ export default function Commissions({ affiliate }) {
             </>
           )}
         </div>
-      ) : (
+      )}
+
+      {/* TEAM DRILLDOWN — per-account view for a specific team member */}
+      {activeTab === 'team' && drilldownAffiliate && (
+        <div>
+          <button onClick={() => { setDrilldownAffiliate(null); setDrilldownCommissions([]); }}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'none', border: 'none', color: '#ff6b35', cursor: 'pointer', fontSize: '0.9rem', fontWeight: '600', marginBottom: '1rem', padding: 0 }}>
+            <ArrowLeft size={18} /> Back to Team
+          </button>
+          <h2 style={{ color: '#e0e0e0', fontSize: '1.25rem', fontWeight: '700', marginBottom: '1.5rem' }}>
+            {drilldownAffiliate.name}'s Earnings Per Account
+          </h2>
+          {renderAccountTable(drilldownAccountStats)}
+        </div>
+      )}
+
+      {/* PER ACCOUNT TAB */}
+      {activeTab === 'per-account' && (
+        <div>
+          {renderAccountTable(myAccountStats)}
+        </div>
+      )}
+
+      {activeTab === 'my-commissions' && (
         /* MY COMMISSIONS TAB */
         <>
           {/* Payout Schedule Info */}
