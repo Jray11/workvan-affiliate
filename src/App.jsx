@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from './supabase';
 import { useToast } from './ToastContext';
 import Login from './pages/Login';
@@ -26,6 +26,29 @@ export default function App() {
   const [overdueLeads, setOverdueLeads] = useState(0);
   const [unreadAnnouncements, setUnreadAnnouncements] = useState(0);
   const [unreadMessages, setUnreadMessages] = useState(0);
+
+  // Splash screen
+  const [showSplash, setShowSplash] = useState(() => {
+    if (sessionStorage.getItem('wv_aff_splash_shown')) return false;
+    return true;
+  });
+  const [splashFading, setSplashFading] = useState(false);
+  const splashVideoRef = useRef(null);
+
+  useEffect(() => {
+    if (!showSplash) return;
+    sessionStorage.setItem('wv_aff_splash_shown', 'true');
+    const fallback = setTimeout(() => {
+      setSplashFading(true);
+      setTimeout(() => setShowSplash(false), 600);
+    }, 4000);
+    return () => clearTimeout(fallback);
+  }, [showSplash]);
+
+  const handleSplashEnd = () => {
+    setSplashFading(true);
+    setTimeout(() => setShowSplash(false), 600);
+  };
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -315,6 +338,28 @@ export default function App() {
     setSession(null);
     setAffiliate(null);
   };
+
+  if (showSplash) {
+    return (
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: '#fff',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        opacity: splashFading ? 0 : 1,
+        transition: 'opacity 0.6s ease-out'
+      }}>
+        <video
+          ref={splashVideoRef}
+          src="/logo-animation.mp4"
+          autoPlay
+          muted
+          playsInline
+          onEnded={handleSplashEnd}
+          style={{ width: '100vw', height: '100vh', objectFit: 'contain' }}
+        />
+      </div>
+    );
+  }
 
   if (loading) {
     return (
