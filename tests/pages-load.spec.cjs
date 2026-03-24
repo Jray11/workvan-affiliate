@@ -11,6 +11,9 @@ const pages = [
   { name: 'Lead Tracker', navText: 'Lead Tracker', expectText: 'Lead' },
   { name: 'Referrals', navText: 'Referrals', expectText: 'Referral' },
   { name: 'Commissions', navText: 'Commissions', expectText: 'Commission' },
+  { name: 'Resources', navText: 'Resources', expectText: 'Resource' },
+  { name: 'Messages', navText: 'Messages', expectText: 'Message' },
+  { name: 'Announcements', navText: 'Announcements', expectText: 'Announcement' },
   { name: 'Team', navText: 'Team', expectText: 'Team', requiresRecruit: true },
 ];
 
