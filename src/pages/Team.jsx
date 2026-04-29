@@ -314,8 +314,8 @@ export default function Team({ affiliate, readOnly }) {
         )}
       </div>
 
-      {/* Recruit Link — directors only, share to grow team */}
-      {isDirector && affiliate.can_recruit && affiliate.code && (
+      {/* Recruit Link — anyone with recruit permission can share their link */}
+      {affiliate.can_recruit && affiliate.code && (
         <RecruitLinkCard code={affiliate.code} />
       )}
 
