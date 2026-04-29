@@ -3,6 +3,7 @@ import { supabase } from './supabase';
 import { useToast } from './ToastContext';
 import Login from './pages/Login';
 import SetPassword from './pages/SetPassword';
+import Recruit from './pages/Recruit';
 import Dashboard from './pages/Dashboard';
 import Referrals from './pages/Referrals';
 import Commissions from './pages/Commissions';
@@ -22,6 +23,7 @@ export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isImpersonating, setIsImpersonating] = useState(false);
   const [setupToken, setSetupToken] = useState(null);
+  const [recruitCode, setRecruitCode] = useState(null);
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [overdueLeads, setOverdueLeads] = useState(0);
   const [unreadAnnouncements, setUnreadAnnouncements] = useState(0);
@@ -52,6 +54,14 @@ export default function App() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+
+    // Public /join/:code recruit-link page — handle before any auth checks
+    const joinMatch = window.location.pathname.match(/^\/join\/([A-Za-z0-9_-]+)\/?$/);
+    if (joinMatch) {
+      setRecruitCode(joinMatch[1]);
+      setLoading(false);
+      return;
+    }
 
     // Check for password setup token first
     const token = params.get('token');
@@ -373,6 +383,11 @@ export default function App() {
         <div style={{ color: '#888', fontSize: '1.25rem' }}>Loading...</div>
       </div>
     );
+  }
+
+  // Public recruit-link page — visible to anyone, no auth required
+  if (recruitCode) {
+    return <Recruit directorCode={recruitCode} />;
   }
 
   // Password setup flow

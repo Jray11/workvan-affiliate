@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { useToast } from '../ToastContext';
-import { Users, UserPlus, TrendingUp, DollarSign, Building2, Plus, X, Edit2, UserX, UserCheck, ChevronDown, ChevronRight, Crown } from 'lucide-react';
+import { Users, UserPlus, TrendingUp, DollarSign, Building2, Plus, X, Edit2, UserX, UserCheck, ChevronDown, ChevronRight, Crown, CheckCircle } from 'lucide-react';
 import { TeamSkeleton } from '../Skeleton';
 
 export default function Team({ affiliate, readOnly }) {
@@ -174,8 +174,13 @@ export default function Team({ affiliate, readOnly }) {
         commission_model: editingMember.commission_model,
         commission_rate: parseFloat(editingMember.commission_rate)
       };
-      if (isDirector && affiliate.can_grant_deal_bonus && editingMember.deal_bonus_amount !== undefined) {
-        updateData.deal_bonus_amount = editingMember.deal_bonus_amount ? parseFloat(editingMember.deal_bonus_amount) : null;
+      if (isDirector && affiliate.can_grant_deal_bonus) {
+        if (editingMember.close_bonus_amount !== undefined) {
+          updateData.close_bonus_amount = editingMember.close_bonus_amount ? parseFloat(editingMember.close_bonus_amount) : 0;
+        }
+        if (editingMember.enablement_bonus_amount !== undefined) {
+          updateData.enablement_bonus_amount = editingMember.enablement_bonus_amount ? parseFloat(editingMember.enablement_bonus_amount) : 0;
+        }
       }
       // Directors can change tier (promote/demote)
       if (isDirector && editingMember.tier) {
@@ -308,6 +313,11 @@ export default function Team({ affiliate, readOnly }) {
           </button>
         )}
       </div>
+
+      {/* Recruit Link — directors only, share to grow team */}
+      {isDirector && affiliate.can_recruit && affiliate.code && (
+        <RecruitLinkCard code={affiliate.code} />
+      )}
 
       {/* Team Stats */}
       <div style={{
@@ -573,7 +583,8 @@ export default function Team({ affiliate, readOnly }) {
                             name: member.name,
                             commission_model: member.commission_model,
                             commission_rate: member.commission_rate,
-                            deal_bonus_amount: member.deal_bonus_amount?.toString() || '',
+                            close_bonus_amount: member.close_bonus_amount?.toString() || '0',
+                            enablement_bonus_amount: member.enablement_bonus_amount?.toString() || '0',
                             tier: member.tier || 'affiliate'
                           })}
                           title="Edit"
@@ -1238,28 +1249,59 @@ export default function Team({ affiliate, readOnly }) {
 
               {isDirector && affiliate.can_grant_deal_bonus && (
                 <div style={{ marginBottom: '1.5rem' }}>
-                  <label style={{ display: 'block', marginBottom: '0.35rem', color: '#4ecca3', fontSize: '0.85rem' }}>
-                    Deal Bonus ($)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={editingMember.deal_bonus_amount}
-                    onChange={(e) => setEditingMember({ ...editingMember, deal_bonus_amount: e.target.value })}
-                    placeholder="0 = none"
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem',
-                      background: '#2a2a2a',
-                      border: '1px solid #3a3a3a',
-                      borderRadius: '8px',
-                      color: '#e0e0e0',
-                      fontSize: '1rem'
-                    }}
-                  />
-                  <div style={{ color: '#666', fontSize: '0.8rem', marginTop: '0.35rem' }}>
-                    One-time bonus per converted account
+                  <div style={{ color: '#10B981', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem' }}>
+                    First-payment bonuses
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.3rem', color: '#aaa', fontSize: '0.8rem' }}>
+                        Close ($)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={editingMember.close_bonus_amount}
+                        onChange={(e) => setEditingMember({ ...editingMember, close_bonus_amount: e.target.value })}
+                        placeholder="0"
+                        style={{
+                          width: '100%',
+                          padding: '0.75rem',
+                          background: '#2a2a2a',
+                          border: '1px solid #3a3a3a',
+                          borderRadius: '8px',
+                          color: '#e0e0e0',
+                          fontSize: '1rem',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '0.3rem', color: '#aaa', fontSize: '0.8rem' }}>
+                        Enablement ($)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={editingMember.enablement_bonus_amount}
+                        onChange={(e) => setEditingMember({ ...editingMember, enablement_bonus_amount: e.target.value })}
+                        placeholder="0"
+                        style={{
+                          width: '100%',
+                          padding: '0.75rem',
+                          background: '#2a2a2a',
+                          border: '1px solid #3a3a3a',
+                          borderRadius: '8px',
+                          color: '#e0e0e0',
+                          fontSize: '1rem',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ color: '#666', fontSize: '0.75rem', marginTop: '0.4rem' }}>
+                    Total ${((parseFloat(editingMember.close_bonus_amount) || 0) + (parseFloat(editingMember.enablement_bonus_amount) || 0)).toFixed(2)} paid once on the customer's first subscription payment.
                   </div>
                 </div>
               )}
@@ -1302,6 +1344,95 @@ export default function Team({ affiliate, readOnly }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Director's shareable recruit link. Recruits hit /join/:code, fill out the
+// public form, and land in the director's team with their commission split
+// blank for the director to set later.
+function RecruitLinkCard({ code }) {
+  const link = `https://affiliates.workvanapp.com/join/${code}`;
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Some browsers / non-secure contexts block clipboard — fall back to select+copy
+      const el = document.createElement('input');
+      el.value = link;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  return (
+    <div style={{
+      background: 'linear-gradient(135deg, #f0a50015, #f0a50005)',
+      border: '1px solid #f0a50040',
+      borderRadius: '12px',
+      padding: '1.25rem 1.5rem',
+      marginBottom: '1.5rem',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '0.75rem' }}>
+        <div>
+          <div style={{ color: '#f0a500', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.35rem' }}>
+            Your recruit link
+          </div>
+          <div style={{ color: '#aaa', fontSize: '0.85rem' }}>
+            Share this anywhere — text, email, social. Anyone who signs up through it lands on your team.
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <input
+          readOnly
+          value={link}
+          onFocus={(e) => e.target.select()}
+          style={{
+            flex: 1,
+            minWidth: '240px',
+            padding: '0.7rem 0.9rem',
+            background: '#0a0a0a',
+            border: '1px solid #2a2a2a',
+            borderRadius: '8px',
+            color: '#e0e0e0',
+            fontFamily: '"SF Mono", Menlo, Consolas, monospace',
+            fontSize: '0.85rem',
+          }}
+        />
+        <button
+          onClick={handleCopy}
+          style={{
+            padding: '0.7rem 1.1rem',
+            background: copied ? '#10B981' : '#f0a500',
+            border: 'none',
+            borderRadius: '8px',
+            color: '#fff',
+            fontWeight: 600,
+            fontSize: '0.85rem',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.4rem',
+            transition: 'background 0.15s',
+          }}
+        >
+          {copied ? (
+            <><CheckCircle size={14} /> Copied</>
+          ) : (
+            'Copy link'
+          )}
+        </button>
+      </div>
     </div>
   );
 }
