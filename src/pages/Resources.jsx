@@ -105,7 +105,7 @@ const SECTIONS = [
         items: [
           {
             objection: '"I don\'t use anything / pen and paper works fine"',
-            response: 'That\'s actually most of the guys we talk to. The question is — how much are you losing? When you text customers from your personal phone asking for Zelle, some just don\'t pay. When you do a job with no signed quote, you have zero protection if they dispute it. And when there\'s no documentation, chargebacks eat your profit. Work Van isn\'t about replacing something — it\'s about collecting more of what you\'re already owed and protecting yourself when things go sideways.'
+            response: 'That\'s actually most of the guys we talk to. The question is — how much are you losing? Not on the jobs you do, on the ones you never get. The homeowner who picks the contractor with the clean digital quote over the one with a number scribbled on a card. The customer who can pay by card and hires the guy who takes cards. The follow-up text from your personal phone that got buried in a thread and forgotten. Work Van isn\'t about replacing pen and paper — it\'s about making sure you\'re the one who gets picked.'
           },
           {
             objection: '"I just use Square / Zelle / CashApp"',
