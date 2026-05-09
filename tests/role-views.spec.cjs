@@ -30,63 +30,61 @@ test.describe('Director view (Trent Test)', () => {
     await expect(page.locator('text=/Dashboard|Trent/i').first()).toBeVisible({ timeout: 10000 });
   });
 
-  test('team page shows direct recruits and lets us drill in', async ({ page }) => {
+  test('My Team page shows direct recruits', async ({ page }) => {
     await gotoAs(page, DIRECTOR_ID);
-    // Click the Team nav (sidebar or top-nav)
-    const teamLink = page.locator('a, button, [role="link"]').filter({ hasText: /^Team$/i }).first();
-    if (await teamLink.isVisible().catch(() => false)) {
-      await teamLink.click();
-      await page.waitForTimeout(2000);
-    } else {
-      await page.goto('https://affiliates.workvanapp.com/#team');
-      await page.waitForTimeout(2000);
-    }
+    // Sidebar uses "My Team" for directors/recruiters
+    const teamLink = page.locator('text=/My Team/i').first();
+    await teamLink.click({ timeout: 5000 });
+    await page.waitForTimeout(2500);
 
     // Trent has Carlos Manager + Sarah Manager directly under him
     await expect(page.locator('text=/Carlos|Sarah/').first()).toBeVisible({ timeout: 10000 });
   });
 
-  test('director sees recruit link / share code', async ({ page }) => {
+  test('director sees their unique referral / recruit code', async ({ page }) => {
     await gotoAs(page, DIRECTOR_ID);
-    // Pull the trent's recruit code into a regex — he uses 'trenttest'
-    const html = await page.content();
-    const hasRecruitLink = /trenttest|recruit|Share|invite/i.test(html);
-    expect(hasRecruitLink).toBe(true);
+    // Trent's code is 'trenttest' — should appear on dashboard in the
+    // referral link card or the recruit-link card (My Team page).
+    const dashHtml = await page.content();
+    let found = dashHtml.includes('trenttest');
+    if (!found) {
+      // Try the team page
+      await page.locator('text=/My Team/i').first().click().catch(() => {});
+      await page.waitForTimeout(2000);
+      const teamHtml = await page.content();
+      found = teamHtml.includes('trenttest');
+    }
+    expect(found).toBe(true);
   });
 
   test('editing sub-affiliate enforces rate + bonus guardrails', async ({ page }) => {
     await gotoAs(page, DIRECTOR_ID);
-    await page.goto('https://affiliates.workvanapp.com/#team');
+    // Navigate via the actual "My Team" sidebar link
+    await page.locator('text=/My Team/i').first().click();
     await page.waitForTimeout(2500);
 
-    // Try to find an Edit button on a team member row. Heuristic: look for any
-    // "Edit" button. If we can't open the edit modal, the test soft-passes
-    // (the UI may render edit affordances differently when the parent has no
-    // can_grant_deal_bonus).
-    const editBtn = page.locator('button').filter({ hasText: /^Edit$/i }).first();
-    const editVisible = await editBtn.isVisible().catch(() => false);
-    if (!editVisible) {
-      test.skip(true, 'No Edit button visible — director may not have can_grant_deal_bonus');
+    // The edit button is icon-only with title="Edit" tooltip
+    const editBtn = page.locator('button[title="Edit"]').first();
+    if (!(await editBtn.isVisible().catch(() => false))) {
+      test.skip(true, 'No Edit affordance visible on the team page');
       return;
     }
     await editBtn.click();
     await page.waitForTimeout(1500);
 
-    // Find the rate input and try to overshoot the cap
+    // Find the commission rate input — it has a "Rate" label / placeholder
     const rateInput = page.locator('input[type="number"]').first();
-    const rateVisible = await rateInput.isVisible().catch(() => false);
-    if (!rateVisible) {
+    if (!(await rateInput.isVisible().catch(() => false))) {
       test.skip(true, 'Rate input not visible in edit modal');
       return;
     }
-    await rateInput.fill('0.99'); // Way over Trent's cap (he's at 0.20 default)
+    await rateInput.fill('0.99');
     await page.waitForTimeout(500);
     const valueAfter = await rateInput.inputValue();
     const numeric = parseFloat(valueAfter);
-    // The clamp should bring it down to <= 0.20-ish (or the input shows red border)
-    // Soft check: just confirm the value didn't stay at 0.99
-    expect(numeric).toBeLessThanOrEqual(1);
-    console.log(`Rate input clamped to ${valueAfter} after attempting 0.99`);
+    // Cap is Trent's own commission_rate (0.20). Clamp logic should bring 0.99 down.
+    expect(numeric).toBeLessThanOrEqual(0.21);
+    console.log(`Rate input clamped to ${valueAfter} after attempting 0.99 (cap 0.20)`);
   });
 });
 
@@ -111,13 +109,14 @@ test.describe('Leaf affiliate view (Maria)', () => {
     }
   });
 
-  test('no recruit link — leaf affiliates can\'t recruit', async ({ page }) => {
+  test('no recruit-affiliate link — leaf affiliates can\'t recruit', async ({ page }) => {
     await gotoAs(page, AFFILIATE_ID);
     const html = await page.content();
-    // 'aff-maria' is her code — recruit link UI would surface a join/share URL.
-    // We should NOT see a /join/aff-maria style URL or recruit-link cards.
-    const hasRecruitCard = /Recruit Link|Invite People|Share .* Link|join\/aff-maria/i.test(html);
-    expect(hasRecruitCard).toBe(false);
+    // Leaves DO get a referral link (?ref=aff-maria) for bringing in CUSTOMERS,
+    // but they should NOT have a /join/aff-maria recruit-affiliate link or
+    // a "Recruit Affiliates" card. Match those specifically.
+    const hasRecruitAffiliateLink = /\/join\/aff-maria|Recruit Affiliate|Invite a teammate/i.test(html);
+    expect(hasRecruitAffiliateLink).toBe(false);
   });
 
   test('commissions page loads', async ({ page }) => {
