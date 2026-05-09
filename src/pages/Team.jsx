@@ -1224,60 +1224,94 @@ export default function Team({ affiliate, readOnly }) {
                 </div>
               </div>
 
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.35rem', color: '#aaa', fontSize: '0.85rem' }}>
-                  {editingMember.commission_model === 'fixed' ? 'Amount ($ per month)' : 'Rate (e.g., 0.10 = 10%)'}
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max={editingMember.commission_model === 'percentage' ? '1' : undefined}
-                  value={editingMember.commission_rate}
-                  onChange={(e) => setEditingMember({ ...editingMember, commission_rate: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    background: '#2a2a2a',
-                    border: '1px solid #3a3a3a',
-                    borderRadius: '8px',
-                    color: '#e0e0e0',
-                    fontSize: '1rem'
-                  }}
-                />
-              </div>
+              {(() => {
+                // Guardrail: a director can't give a sub-affiliate a higher
+                // rate than their own allotment from the company.
+                const ownRate = parseFloat(affiliate.commission_rate) || 0;
+                const isPercentage = editingMember.commission_model === 'percentage';
+                const rateMax = isPercentage ? ownRate : undefined;
+                const subRate = parseFloat(editingMember.commission_rate) || 0;
+                const overMax = isPercentage && rateMax !== undefined && subRate > rateMax;
+                return (
+                  <div style={{ marginBottom: '1rem' }}>
+                    <label style={{ display: 'block', marginBottom: '0.35rem', color: '#aaa', fontSize: '0.85rem' }}>
+                      {isPercentage ? `Rate (e.g., 0.${String(Math.round(ownRate * 100)).padStart(2, '0')} = ${(ownRate * 100).toFixed(0)}%)` : 'Amount ($ per month)'}
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max={rateMax}
+                      value={editingMember.commission_rate}
+                      onChange={(e) => {
+                        const v = parseFloat(e.target.value);
+                        const clamped = isPercentage && rateMax !== undefined && v > rateMax
+                          ? rateMax.toString()
+                          : e.target.value;
+                        setEditingMember({ ...editingMember, commission_rate: clamped });
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem',
+                        background: '#2a2a2a',
+                        border: `1px solid ${overMax ? '#EF4444' : '#3a3a3a'}`,
+                        borderRadius: '8px',
+                        color: '#e0e0e0',
+                        fontSize: '1rem'
+                      }}
+                    />
+                    {isPercentage && rateMax !== undefined && (
+                      <div style={{ color: overMax ? '#EF4444' : '#666', fontSize: '0.75rem', marginTop: '0.4rem' }}>
+                        Max {(rateMax * 100).toFixed(0)}% — this is your own allotment from Work Van.
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
-              {isDirector && affiliate.can_grant_deal_bonus && (
-                <div style={{ marginBottom: '1.5rem' }}>
-                  <div style={{ color: '#10B981', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-                    Signing &amp; onboarding bonus
+              {isDirector && affiliate.can_grant_deal_bonus && (() => {
+                const ownBonus = (parseFloat(affiliate.close_bonus_amount) || 0) + (parseFloat(affiliate.enablement_bonus_amount) || 0);
+                const subBonus = (parseFloat(editingMember.close_bonus_amount) || 0) + (parseFloat(editingMember.enablement_bonus_amount) || 0);
+                const overMax = ownBonus > 0 && subBonus > ownBonus;
+                return (
+                  <div style={{ marginBottom: '1.5rem' }}>
+                    <div style={{ color: '#10B981', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem' }}>
+                      Signing &amp; onboarding bonus
+                    </div>
+                    <label style={{ display: 'block', marginBottom: '0.3rem', color: '#aaa', fontSize: '0.8rem' }}>
+                      Bonus ($)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max={ownBonus > 0 ? ownBonus : undefined}
+                      value={subBonus || ''}
+                      onChange={(e) => {
+                        const v = parseFloat(e.target.value);
+                        const clamped = ownBonus > 0 && v > ownBonus ? ownBonus.toString() : e.target.value;
+                        setEditingMember({ ...editingMember, close_bonus_amount: clamped, enablement_bonus_amount: '0' });
+                      }}
+                      placeholder={String(ownBonus || 50)}
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem',
+                        background: '#2a2a2a',
+                        border: `1px solid ${overMax ? '#EF4444' : '#3a3a3a'}`,
+                        borderRadius: '8px',
+                        color: '#e0e0e0',
+                        fontSize: '1rem',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                    <div style={{ color: overMax ? '#EF4444' : '#666', fontSize: '0.75rem', marginTop: '0.4rem' }}>
+                      {ownBonus > 0
+                        ? `Max $${ownBonus.toFixed(0)} — your own bonus from Work Van. Paid once on first subscription payment.`
+                        : `Paid once on the customer's first subscription payment.`}
+                    </div>
                   </div>
-                  <label style={{ display: 'block', marginBottom: '0.3rem', color: '#aaa', fontSize: '0.8rem' }}>
-                    Bonus ($)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={(parseFloat(editingMember.close_bonus_amount) || 0) + (parseFloat(editingMember.enablement_bonus_amount) || 0) || ''}
-                    onChange={(e) => setEditingMember({ ...editingMember, close_bonus_amount: e.target.value, enablement_bonus_amount: '0' })}
-                    placeholder="50"
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem',
-                      background: '#2a2a2a',
-                      border: '1px solid #3a3a3a',
-                      borderRadius: '8px',
-                      color: '#e0e0e0',
-                      fontSize: '1rem',
-                      boxSizing: 'border-box',
-                    }}
-                  />
-                  <div style={{ color: '#666', fontSize: '0.75rem', marginTop: '0.4rem' }}>
-                    Paid once on the customer's first subscription payment.
-                  </div>
-                </div>
-              )}
+                );
+              })()}
 
               <div style={{ display: 'flex', gap: '0.75rem' }}>
                 <button
