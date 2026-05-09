@@ -1250,58 +1250,31 @@ export default function Team({ affiliate, readOnly }) {
               {isDirector && affiliate.can_grant_deal_bonus && (
                 <div style={{ marginBottom: '1.5rem' }}>
                   <div style={{ color: '#10B981', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-                    First-payment bonuses
+                    Signing &amp; onboarding bonus
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '0.3rem', color: '#aaa', fontSize: '0.8rem' }}>
-                        Close ($)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={editingMember.close_bonus_amount}
-                        onChange={(e) => setEditingMember({ ...editingMember, close_bonus_amount: e.target.value })}
-                        placeholder="0"
-                        style={{
-                          width: '100%',
-                          padding: '0.75rem',
-                          background: '#2a2a2a',
-                          border: '1px solid #3a3a3a',
-                          borderRadius: '8px',
-                          color: '#e0e0e0',
-                          fontSize: '1rem',
-                          boxSizing: 'border-box',
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '0.3rem', color: '#aaa', fontSize: '0.8rem' }}>
-                        Enablement ($)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={editingMember.enablement_bonus_amount}
-                        onChange={(e) => setEditingMember({ ...editingMember, enablement_bonus_amount: e.target.value })}
-                        placeholder="0"
-                        style={{
-                          width: '100%',
-                          padding: '0.75rem',
-                          background: '#2a2a2a',
-                          border: '1px solid #3a3a3a',
-                          borderRadius: '8px',
-                          color: '#e0e0e0',
-                          fontSize: '1rem',
-                          boxSizing: 'border-box',
-                        }}
-                      />
-                    </div>
-                  </div>
+                  <label style={{ display: 'block', marginBottom: '0.3rem', color: '#aaa', fontSize: '0.8rem' }}>
+                    Bonus ($)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={(parseFloat(editingMember.close_bonus_amount) || 0) + (parseFloat(editingMember.enablement_bonus_amount) || 0) || ''}
+                    onChange={(e) => setEditingMember({ ...editingMember, close_bonus_amount: e.target.value, enablement_bonus_amount: '0' })}
+                    placeholder="50"
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      background: '#2a2a2a',
+                      border: '1px solid #3a3a3a',
+                      borderRadius: '8px',
+                      color: '#e0e0e0',
+                      fontSize: '1rem',
+                      boxSizing: 'border-box',
+                    }}
+                  />
                   <div style={{ color: '#666', fontSize: '0.75rem', marginTop: '0.4rem' }}>
-                    Total ${((parseFloat(editingMember.close_bonus_amount) || 0) + (parseFloat(editingMember.enablement_bonus_amount) || 0)).toFixed(2)} paid once on the customer's first subscription payment.
+                    Paid once on the customer's first subscription payment.
                   </div>
                 </div>
               )}
