@@ -19,12 +19,18 @@ export default function Recruit({ directorCode }) {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState(null);
   const [directorName, setDirectorName] = useState(null);
+  const [linkInvalid, setLinkInvalid] = useState(false);
 
-  // Best-effort: pull the director's name to personalize the page header.
+  // Pull the director's name so the header reads
+  // "<Name> is inviting you to..." instead of generic copy.
   useEffect(() => {
     if (!directorCode) return;
-    fetch(`https://workvanapp.com/api/affiliate-recruit-signup?lookup=${encodeURIComponent(directorCode)}`)
-      .catch(() => {}); // optional, ignore failures
+    fetch(`https://workvanapp.com/api/affiliate-recruit-signup?code=${encodeURIComponent(directorCode)}`)
+      .then((r) => r.ok ? r.json() : Promise.reject(r))
+      .then((data) => {
+        if (data?.directorName) setDirectorName(data.directorName);
+      })
+      .catch(() => setLinkInvalid(true));
   }, [directorCode]);
 
   const handleSubmit = async (e) => {
@@ -88,13 +94,20 @@ export default function Recruit({ directorCode }) {
             <UserPlus size={30} color="#fff" />
           </div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#e0e0e0', margin: '0 0 0.4rem' }}>
-            {submitted ? 'You\'re in.' : 'Join the WorkVan affiliate team'}
+            {submitted
+              ? "You're in."
+              : linkInvalid
+              ? 'Link not valid'
+              : directorName
+              ? `${directorName} is inviting you to Work Van`
+              : 'Join the Work Van affiliate team'}
           </h1>
           <p style={{ color: '#888', fontSize: '0.9rem', margin: 0, lineHeight: 1.5 }}>
             {submitted
               ? `Check your email for a link to set up your password${directorName ? `. ${directorName} will be in touch with your commission setup.` : '.'}`
-              : 'Create your affiliate account to start earning recurring commissions on every customer you bring to WorkVan.'
-            }
+              : linkInvalid
+              ? 'This recruit link is invalid or no longer active. Ask the person who shared it for a fresh one.'
+              : `Create your affiliate account to start earning recurring commissions on every customer you bring to Work Van${directorName ? `, alongside ${directorName}'s team` : ''}.`}
           </p>
         </div>
 
@@ -103,6 +116,12 @@ export default function Recruit({ directorCode }) {
             <CheckCircle size={48} color="#10B981" style={{ margin: '0 auto 1rem' }} />
             <p style={{ color: '#888', fontSize: '0.85rem' }}>
               You can close this window.
+            </p>
+          </div>
+        ) : linkInvalid ? (
+          <div style={{ textAlign: 'center', padding: '1rem 0' }}>
+            <p style={{ color: '#888', fontSize: '0.85rem' }}>
+              If you think this is a mistake, contact whoever shared the link with you.
             </p>
           </div>
         ) : (
