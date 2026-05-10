@@ -156,8 +156,20 @@ export default function Team({ affiliate, readOnly }) {
       const bonusInput = parseFloat(newMember.bonus_amount) || 0;
       const cappedBonus = ownBonus > 0 ? Math.min(bonusInput, ownBonus) : bonusInput;
 
+      // Cap duration at parent's allotment. If parent is on a finite term
+      // (e.g., 6 months), child cannot be perpetual or longer.
+      const parentDuration = parseInt(affiliate.commission_duration_months) || null;
       const durationRaw = (newMember.commission_duration_months || '').toString().trim();
-      const commissionDuration = durationRaw === '' || durationRaw === '0' ? null : parseInt(durationRaw);
+      const requestedDuration = durationRaw === '' || durationRaw === '0' ? null : parseInt(durationRaw);
+      let commissionDuration;
+      if (parentDuration === null) {
+        commissionDuration = requestedDuration; // null (perpetual) allowed
+      } else {
+        // parent is finite — child must be finite and ≤ parent
+        commissionDuration = requestedDuration === null
+          ? parentDuration
+          : Math.min(requestedDuration, parentDuration);
+      }
 
       const selectedTier = isDirector ? (newMember.tier || 'recruiter') : 'affiliate';
       const insertData = {
@@ -175,6 +187,9 @@ export default function Team({ affiliate, readOnly }) {
         portal_enabled: true,
         can_recruit: selectedTier === 'recruiter',
         can_set_sub_rates: selectedTier === 'recruiter',
+        // Managers need this flag so the bonus input shows on THEIR add-team-member
+        // form. Without it, they can't pass any bonus (even $0) down to their team.
+        can_grant_deal_bonus: selectedTier === 'recruiter',
         tier: selectedTier
       };
 
@@ -257,11 +272,21 @@ export default function Team({ affiliate, readOnly }) {
     e.preventDefault();
     setSaving(true);
     try {
+      const parentDuration = parseInt(affiliate.commission_duration_months) || null;
       const durationRaw = (editingMember.commission_duration_months ?? '').toString().trim();
+      const requestedDuration = durationRaw === '' || durationRaw === '0' ? null : parseInt(durationRaw);
+      let cappedDuration;
+      if (parentDuration === null) {
+        cappedDuration = requestedDuration;
+      } else {
+        cappedDuration = requestedDuration === null
+          ? parentDuration
+          : Math.min(requestedDuration, parentDuration);
+      }
       const updateData = {
         commission_model: 'percentage',
         commission_rate: parseFloat(editingMember.commission_rate),
-        commission_duration_months: durationRaw === '' || durationRaw === '0' ? null : parseInt(durationRaw),
+        commission_duration_months: cappedDuration,
       };
       if (isDirector && affiliate.can_grant_deal_bonus) {
         if (editingMember.close_bonus_amount !== undefined) {
@@ -1146,56 +1171,78 @@ export default function Team({ affiliate, readOnly }) {
                       </div>
                     </div>
 
-                    <div style={{ marginBottom: '1.25rem' }}>
-                      <label style={{ display: 'block', marginBottom: '0.35rem', color: '#aaa', fontSize: '0.85rem' }}>
-                        Payout Duration
-                      </label>
-                      <select
-                        value={durationSelectValue}
-                        onChange={(e) => setNewMember({
-                          ...newMember,
-                          commission_duration_months: e.target.value === 'custom' ? '6' : e.target.value,
-                        })}
-                        style={{
-                          width: '100%',
-                          padding: '0.75rem',
-                          background: '#2a2a2a',
-                          border: '1px solid #3a3a3a',
-                          borderRadius: '8px',
-                          color: '#e0e0e0',
-                          fontSize: '1rem'
-                        }}
-                      >
-                        <option value="">Perpetual (pays as long as the account stays active)</option>
-                        <option value="6">6 months per account</option>
-                        <option value="12">12 months per account</option>
-                        <option value="24">24 months per account</option>
-                        <option value="custom">Custom...</option>
-                      </select>
-                      {durationSelectValue === 'custom' && (
-                        <input
-                          type="number"
-                          min="1"
-                          value={newMember.commission_duration_months}
-                          onChange={(e) => setNewMember({ ...newMember, commission_duration_months: e.target.value })}
-                          placeholder="Months"
-                          style={{
-                            width: '100%',
-                            marginTop: '0.5rem',
-                            padding: '0.75rem',
-                            background: '#2a2a2a',
-                            border: '1px solid #3a3a3a',
-                            borderRadius: '8px',
-                            color: '#e0e0e0',
-                            fontSize: '1rem',
-                            boxSizing: 'border-box',
-                          }}
-                        />
-                      )}
-                      <div style={{ color: '#666', fontSize: '0.8rem', marginTop: '0.35rem' }}>
-                        After the duration ends, you keep the full {ownRatePct ? `${ownRatePct.toFixed(0)}%` : 'payout'}.
-                      </div>
-                    </div>
+                    {(() => {
+                      const parentDuration = parseInt(affiliate.commission_duration_months) || null;
+                      // Parent perpetual → all options. Parent finite → only show
+                      // standard options ≤ parent's term, no perpetual.
+                      const standards = [6, 12, 24].filter(n => parentDuration === null || n <= parentDuration);
+                      // If user chose perpetual but parent is finite, snap to parent's cap
+                      const currentRaw = (newMember.commission_duration_months || '').toString();
+                      const currentVal = currentRaw === '' && parentDuration !== null
+                        ? parentDuration.toString()
+                        : currentRaw;
+                      return (
+                        <div style={{ marginBottom: '1.25rem' }}>
+                          <label style={{ display: 'block', marginBottom: '0.35rem', color: '#aaa', fontSize: '0.85rem' }}>
+                            Payout Duration
+                          </label>
+                          <select
+                            value={['', ...standards.map(String)].includes(currentVal) ? currentVal : 'custom'}
+                            onChange={(e) => setNewMember({
+                              ...newMember,
+                              commission_duration_months: e.target.value === 'custom' ? (parentDuration ? Math.min(6, parentDuration).toString() : '6') : e.target.value,
+                            })}
+                            style={{
+                              width: '100%',
+                              padding: '0.75rem',
+                              background: '#2a2a2a',
+                              border: '1px solid #3a3a3a',
+                              borderRadius: '8px',
+                              color: '#e0e0e0',
+                              fontSize: '1rem'
+                            }}
+                          >
+                            {parentDuration === null && (
+                              <option value="">Perpetual (pays as long as the account stays active)</option>
+                            )}
+                            {standards.map(n => (
+                              <option key={n} value={String(n)}>{n} months per account</option>
+                            ))}
+                            <option value="custom">Custom...</option>
+                          </select>
+                          {!['', ...standards.map(String)].includes(currentVal) && (
+                            <input
+                              type="number"
+                              min="1"
+                              max={parentDuration || undefined}
+                              value={newMember.commission_duration_months}
+                              onChange={(e) => {
+                                const v = parseInt(e.target.value);
+                                const clamped = parentDuration && v > parentDuration ? parentDuration.toString() : e.target.value;
+                                setNewMember({ ...newMember, commission_duration_months: clamped });
+                              }}
+                              placeholder="Months"
+                              style={{
+                                width: '100%',
+                                marginTop: '0.5rem',
+                                padding: '0.75rem',
+                                background: '#2a2a2a',
+                                border: '1px solid #3a3a3a',
+                                borderRadius: '8px',
+                                color: '#e0e0e0',
+                                fontSize: '1rem',
+                                boxSizing: 'border-box',
+                              }}
+                            />
+                          )}
+                          <div style={{ color: '#666', fontSize: '0.8rem', marginTop: '0.35rem' }}>
+                            {parentDuration === null
+                              ? `After the duration ends, you keep the full ${ownRatePct ? `${ownRatePct.toFixed(0)}%` : 'payout'}.`
+                              : `Max ${parentDuration} months — your own term from Work Van. After it ends, you keep the full ${ownRatePct ? `${ownRatePct.toFixed(0)}%` : 'payout'}.`}
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {affiliate.can_grant_deal_bonus && (
                       <div style={{ marginBottom: '1.5rem' }}>
@@ -1416,9 +1463,11 @@ export default function Team({ affiliate, readOnly }) {
               })()}
 
               {(() => {
-                const durationStandard = ['', '6', '12', '24'];
+                const parentDuration = parseInt(affiliate.commission_duration_months) || null;
+                const standards = [6, 12, 24].filter(n => parentDuration === null || n <= parentDuration);
                 const raw = (editingMember.commission_duration_months ?? '').toString();
-                const selectValue = durationStandard.includes(raw) ? raw : 'custom';
+                const allowed = ['', ...standards.map(String)];
+                const selectValue = allowed.includes(raw) ? raw : 'custom';
                 return (
                   <div style={{ marginBottom: '1rem' }}>
                     <label style={{ display: 'block', marginBottom: '0.35rem', color: '#aaa', fontSize: '0.85rem' }}>
@@ -1428,7 +1477,9 @@ export default function Team({ affiliate, readOnly }) {
                       value={selectValue}
                       onChange={(e) => setEditingMember({
                         ...editingMember,
-                        commission_duration_months: e.target.value === 'custom' ? '6' : e.target.value,
+                        commission_duration_months: e.target.value === 'custom'
+                          ? (parentDuration ? Math.min(6, parentDuration).toString() : '6')
+                          : e.target.value,
                       })}
                       style={{
                         width: '100%',
@@ -1440,18 +1491,25 @@ export default function Team({ affiliate, readOnly }) {
                         fontSize: '1rem'
                       }}
                     >
-                      <option value="">Perpetual (pays as long as the account stays active)</option>
-                      <option value="6">6 months per account</option>
-                      <option value="12">12 months per account</option>
-                      <option value="24">24 months per account</option>
+                      {parentDuration === null && (
+                        <option value="">Perpetual (pays as long as the account stays active)</option>
+                      )}
+                      {standards.map(n => (
+                        <option key={n} value={String(n)}>{n} months per account</option>
+                      ))}
                       <option value="custom">Custom...</option>
                     </select>
                     {selectValue === 'custom' && (
                       <input
                         type="number"
                         min="1"
+                        max={parentDuration || undefined}
                         value={editingMember.commission_duration_months}
-                        onChange={(e) => setEditingMember({ ...editingMember, commission_duration_months: e.target.value })}
+                        onChange={(e) => {
+                          const v = parseInt(e.target.value);
+                          const clamped = parentDuration && v > parentDuration ? parentDuration.toString() : e.target.value;
+                          setEditingMember({ ...editingMember, commission_duration_months: clamped });
+                        }}
                         placeholder="Months"
                         style={{
                           width: '100%',
@@ -1465,6 +1523,11 @@ export default function Team({ affiliate, readOnly }) {
                           boxSizing: 'border-box',
                         }}
                       />
+                    )}
+                    {parentDuration !== null && (
+                      <div style={{ color: '#666', fontSize: '0.75rem', marginTop: '0.4rem' }}>
+                        Max {parentDuration} months — your own term from Work Van.
+                      </div>
                     )}
                   </div>
                 );
