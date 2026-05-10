@@ -313,6 +313,7 @@ export default function App() {
             affiliate_id: affiliateByEmail.id
           }]);
           checkTerminationAccess(affiliateByEmail);
+          recordLogin(affiliateByEmail);
         } else {
           // No affiliate found
           setAffiliate(null);
@@ -326,12 +327,30 @@ export default function App() {
           .single();
 
         checkTerminationAccess(affiliateData);
+        recordLogin(affiliateData);
       }
     } catch (error) {
       console.error('Error loading affiliate:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Stamp last_login_at on every loadAffiliate so managers can see the
+  // member is actually using the portal. login_count is debounced to once
+  // per hour so a tab refresh doesn't inflate the counter.
+  const recordLogin = (affiliateData) => {
+    if (!affiliateData?.id || isImpersonating) return;
+    const now = new Date();
+    const last = affiliateData.last_login_at ? new Date(affiliateData.last_login_at) : null;
+    const hoursSince = last ? (now.getTime() - last.getTime()) / 3600000 : Infinity;
+    const update = { last_login_at: now.toISOString() };
+    if (hoursSince > 1) {
+      update.login_count = (affiliateData.login_count || 0) + 1;
+    }
+    // Fire and forget — UI shouldn't block on this
+    supabase.from('affiliates').update(update).eq('id', affiliateData.id)
+      .then(({ error }) => { if (error) console.error('recordLogin failed:', error); });
   };
 
   const handleLogout = async () => {
