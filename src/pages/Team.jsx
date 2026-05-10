@@ -15,8 +15,13 @@ export default function Team({ affiliate, readOnly }) {
     email: '',
     phone: '',
     code: '',
-    commission_model: 'fixed',
-    commission_rate: affiliate.can_set_sub_rates ? '5.00' : '',
+    // Always percentage — fixed $/month doesn't model how affiliate comp works.
+    // User types whole-number percent (e.g. 15), saved as decimal (0.15).
+    commission_pct: '',
+    // null/'' = perpetual; otherwise N months from customer's first payment.
+    commission_duration_months: '6',
+    // One-time signing & onboarding bonus, capped by director's own.
+    bonus_amount: '',
     tier: isDirector ? 'recruiter' : 'affiliate'
   });
   const [saving, setSaving] = useState(false);
@@ -130,10 +135,29 @@ export default function Team({ affiliate, readOnly }) {
     setSaving(true);
 
     try {
-      let commissionRate = parseFloat(newMember.commission_rate);
+      // Cap rate at director's own allotment (their commission_rate, e.g., 0.20).
+      const ownRate = parseFloat(affiliate.commission_rate) || 0;
+      const ownBonus = (parseFloat(affiliate.close_bonus_amount) || 0) + (parseFloat(affiliate.enablement_bonus_amount) || 0);
+
+      let commissionRate;
       if (!affiliate.can_set_sub_rates) {
-        commissionRate = 5.00;
+        // Director hasn't been authorized to set rates — fall back to 5%.
+        commissionRate = 0.05;
+      } else {
+        const pct = parseFloat(newMember.commission_pct);
+        if (Number.isNaN(pct) || pct < 0) {
+          toast.error('Enter a commission percentage');
+          setSaving(false);
+          return;
+        }
+        commissionRate = Math.min(pct / 100, ownRate);
       }
+
+      const bonusInput = parseFloat(newMember.bonus_amount) || 0;
+      const cappedBonus = ownBonus > 0 ? Math.min(bonusInput, ownBonus) : bonusInput;
+
+      const durationRaw = (newMember.commission_duration_months || '').toString().trim();
+      const commissionDuration = durationRaw === '' || durationRaw === '0' ? null : parseInt(durationRaw);
 
       const selectedTier = isDirector ? (newMember.tier || 'recruiter') : 'affiliate';
       const insertData = {
@@ -141,8 +165,11 @@ export default function Team({ affiliate, readOnly }) {
         email: newMember.email || null,
         phone: newMember.phone || null,
         code: newMember.code.toLowerCase().replace(/\s+/g, ''),
-        commission_model: newMember.commission_model,
+        commission_model: 'percentage',
         commission_rate: commissionRate,
+        commission_duration_months: commissionDuration,
+        close_bonus_amount: cappedBonus,
+        enablement_bonus_amount: 0,
         parent_affiliate_id: affiliate.id,
         active: true,
         portal_enabled: true,
@@ -156,7 +183,11 @@ export default function Team({ affiliate, readOnly }) {
       if (error) throw error;
 
       setShowAddForm(false);
-      setNewMember({ name: '', email: '', phone: '', code: '', commission_model: 'fixed', commission_rate: '5.00', tier: isDirector ? 'recruiter' : 'affiliate' });
+      setNewMember({
+        name: '', email: '', phone: '', code: '',
+        commission_pct: '', commission_duration_months: '6', bonus_amount: '',
+        tier: isDirector ? 'recruiter' : 'affiliate',
+      });
       loadTeam();
       toast.success(selectedTier === 'recruiter' ? 'Team leader added' : 'Affiliate added');
     } catch (error) {
@@ -170,9 +201,11 @@ export default function Team({ affiliate, readOnly }) {
     e.preventDefault();
     setSaving(true);
     try {
+      const durationRaw = (editingMember.commission_duration_months ?? '').toString().trim();
       const updateData = {
-        commission_model: editingMember.commission_model,
-        commission_rate: parseFloat(editingMember.commission_rate)
+        commission_model: 'percentage',
+        commission_rate: parseFloat(editingMember.commission_rate),
+        commission_duration_months: durationRaw === '' || durationRaw === '0' ? null : parseInt(durationRaw),
       };
       if (isDirector && affiliate.can_grant_deal_bonus) {
         if (editingMember.close_bonus_amount !== undefined) {
@@ -581,8 +614,9 @@ export default function Team({ affiliate, readOnly }) {
                           onClick={() => setEditingMember({
                             id: member.id,
                             name: member.name,
-                            commission_model: member.commission_model,
+                            commission_model: 'percentage',
                             commission_rate: member.commission_rate,
+                            commission_duration_months: member.commission_duration_months?.toString() ?? '',
                             close_bonus_amount: member.close_bonus_amount?.toString() || '0',
                             enablement_bonus_amount: member.enablement_bonus_amount?.toString() || '0',
                             tier: member.tier || 'affiliate'
@@ -991,77 +1025,144 @@ export default function Team({ affiliate, readOnly }) {
                 />
               </div>
 
-              {affiliate.can_set_sub_rates && (
-                <>
-                  <div style={{ marginBottom: '1rem' }}>
-                    <label style={{ display: 'block', marginBottom: '0.35rem', color: '#aaa', fontSize: '0.85rem' }}>
-                      Commission Type
-                    </label>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <button
-                        type="button"
-                        onClick={() => setNewMember({ ...newMember, commission_model: 'fixed', commission_rate: '5.00' })}
-                        style={{
-                          flex: 1,
-                          padding: '0.75rem',
-                          background: newMember.commission_model === 'fixed' ? '#ff6b35' : '#2a2a2a',
-                          border: newMember.commission_model === 'fixed' ? '2px solid #ff6b35' : '1px solid #3a3a3a',
-                          borderRadius: '8px',
-                          color: newMember.commission_model === 'fixed' ? '#fff' : '#888',
-                          fontWeight: newMember.commission_model === 'fixed' ? '600' : '400',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        $ per month
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setNewMember({ ...newMember, commission_model: 'percentage', commission_rate: '0.10' })}
-                        style={{
-                          flex: 1,
-                          padding: '0.75rem',
-                          background: newMember.commission_model === 'percentage' ? '#ff6b35' : '#2a2a2a',
-                          border: newMember.commission_model === 'percentage' ? '2px solid #ff6b35' : '1px solid #3a3a3a',
-                          borderRadius: '8px',
-                          color: newMember.commission_model === 'percentage' ? '#fff' : '#888',
-                          fontWeight: newMember.commission_model === 'percentage' ? '600' : '400',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        % of revenue
-                      </button>
+              {affiliate.can_set_sub_rates && (() => {
+                const ownRatePct = (parseFloat(affiliate.commission_rate) || 0) * 100;
+                const ownBonus = (parseFloat(affiliate.close_bonus_amount) || 0) + (parseFloat(affiliate.enablement_bonus_amount) || 0);
+                const enteredPct = parseFloat(newMember.commission_pct) || 0;
+                const enteredBonus = parseFloat(newMember.bonus_amount) || 0;
+                const pctOver = ownRatePct > 0 && enteredPct > ownRatePct;
+                const bonusOver = ownBonus > 0 && enteredBonus > ownBonus;
+                const durationStandard = ['', '6', '12', '24'];
+                const durationSelectValue = durationStandard.includes(newMember.commission_duration_months) ? newMember.commission_duration_months : 'custom';
+                return (
+                  <>
+                    <div style={{ marginBottom: '1.25rem' }}>
+                      <label style={{ display: 'block', marginBottom: '0.35rem', color: '#aaa', fontSize: '0.85rem' }}>
+                        Recurring Commission (%)
+                      </label>
+                      <div style={{ position: 'relative' }}>
+                        <input
+                          type="number"
+                          step="0.5"
+                          min="0"
+                          max={ownRatePct || undefined}
+                          value={newMember.commission_pct}
+                          onChange={(e) => {
+                            const v = parseFloat(e.target.value);
+                            const clamped = ownRatePct > 0 && v > ownRatePct ? ownRatePct.toString() : e.target.value;
+                            setNewMember({ ...newMember, commission_pct: clamped });
+                          }}
+                          placeholder={ownRatePct ? String(Math.min(15, ownRatePct)) : '15'}
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem',
+                            paddingRight: '2rem',
+                            background: '#2a2a2a',
+                            border: `1px solid ${pctOver ? '#EF4444' : '#3a3a3a'}`,
+                            borderRadius: '8px',
+                            color: '#e0e0e0',
+                            fontSize: '1rem',
+                            boxSizing: 'border-box',
+                          }}
+                        />
+                        <span style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: '#888', pointerEvents: 'none' }}>%</span>
+                      </div>
+                      <div style={{ color: pctOver ? '#EF4444' : '#666', fontSize: '0.8rem', marginTop: '0.35rem' }}>
+                        {ownRatePct > 0
+                          ? `Max ${ownRatePct.toFixed(0)}% — your own allotment from Work Van. They earn this on each referred account's monthly revenue.`
+                          : "They earn this on each referred account's monthly revenue."}
+                      </div>
                     </div>
-                  </div>
 
-                  <div style={{ marginBottom: '1.5rem' }}>
-                    <label style={{ display: 'block', marginBottom: '0.35rem', color: '#aaa', fontSize: '0.85rem' }}>
-                      {newMember.commission_model === 'fixed' ? 'Amount ($ per month)' : 'Rate (e.g., 0.10 = 10%)'}
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max={newMember.commission_model === 'percentage' ? '1' : undefined}
-                      value={newMember.commission_rate}
-                      onChange={(e) => setNewMember({ ...newMember, commission_rate: e.target.value })}
-                      style={{
-                        width: '100%',
-                        padding: '0.75rem',
-                        background: '#2a2a2a',
-                        border: '1px solid #3a3a3a',
-                        borderRadius: '8px',
-                        color: '#e0e0e0',
-                        fontSize: '1rem'
-                      }}
-                    />
-                    <div style={{ color: '#666', fontSize: '0.8rem', marginTop: '0.35rem' }}>
-                      {newMember.commission_model === 'fixed'
-                        ? "This is what they'll earn per active account per month."
-                        : "Enter as decimal (e.g., 0.10 for 10% of the account's monthly revenue)."}
+                    <div style={{ marginBottom: '1.25rem' }}>
+                      <label style={{ display: 'block', marginBottom: '0.35rem', color: '#aaa', fontSize: '0.85rem' }}>
+                        Payout Duration
+                      </label>
+                      <select
+                        value={durationSelectValue}
+                        onChange={(e) => setNewMember({
+                          ...newMember,
+                          commission_duration_months: e.target.value === 'custom' ? '6' : e.target.value,
+                        })}
+                        style={{
+                          width: '100%',
+                          padding: '0.75rem',
+                          background: '#2a2a2a',
+                          border: '1px solid #3a3a3a',
+                          borderRadius: '8px',
+                          color: '#e0e0e0',
+                          fontSize: '1rem'
+                        }}
+                      >
+                        <option value="">Perpetual (pays as long as the account stays active)</option>
+                        <option value="6">6 months per account</option>
+                        <option value="12">12 months per account</option>
+                        <option value="24">24 months per account</option>
+                        <option value="custom">Custom...</option>
+                      </select>
+                      {durationSelectValue === 'custom' && (
+                        <input
+                          type="number"
+                          min="1"
+                          value={newMember.commission_duration_months}
+                          onChange={(e) => setNewMember({ ...newMember, commission_duration_months: e.target.value })}
+                          placeholder="Months"
+                          style={{
+                            width: '100%',
+                            marginTop: '0.5rem',
+                            padding: '0.75rem',
+                            background: '#2a2a2a',
+                            border: '1px solid #3a3a3a',
+                            borderRadius: '8px',
+                            color: '#e0e0e0',
+                            fontSize: '1rem',
+                            boxSizing: 'border-box',
+                          }}
+                        />
+                      )}
+                      <div style={{ color: '#666', fontSize: '0.8rem', marginTop: '0.35rem' }}>
+                        After the duration ends, you keep the full {ownRatePct ? `${ownRatePct.toFixed(0)}%` : 'payout'}.
+                      </div>
                     </div>
-                  </div>
-                </>
-              )}
+
+                    {affiliate.can_grant_deal_bonus && (
+                      <div style={{ marginBottom: '1.5rem' }}>
+                        <label style={{ display: 'block', marginBottom: '0.35rem', color: '#aaa', fontSize: '0.85rem' }}>
+                          One-time Signing &amp; Onboarding Bonus ($)
+                        </label>
+                        <input
+                          type="number"
+                          step="1"
+                          min="0"
+                          max={ownBonus > 0 ? ownBonus : undefined}
+                          value={newMember.bonus_amount}
+                          onChange={(e) => {
+                            const v = parseFloat(e.target.value);
+                            const clamped = ownBonus > 0 && v > ownBonus ? ownBonus.toString() : e.target.value;
+                            setNewMember({ ...newMember, bonus_amount: clamped });
+                          }}
+                          placeholder={ownBonus ? String(ownBonus) : '50'}
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem',
+                            background: '#2a2a2a',
+                            border: `1px solid ${bonusOver ? '#EF4444' : '#3a3a3a'}`,
+                            borderRadius: '8px',
+                            color: '#e0e0e0',
+                            fontSize: '1rem',
+                            boxSizing: 'border-box',
+                          }}
+                        />
+                        <div style={{ color: bonusOver ? '#EF4444' : '#666', fontSize: '0.8rem', marginTop: '0.35rem' }}>
+                          {ownBonus > 0
+                            ? `Max $${ownBonus.toFixed(0)} — your own bonus. Paid once when their first customer makes their first subscription payment.`
+                            : 'Paid once when their first customer makes their first subscription payment.'}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
 
               <div style={{ display: 'flex', gap: '0.75rem' }}>
                 <button
@@ -1184,86 +1285,114 @@ export default function Team({ affiliate, readOnly }) {
                 </div>
               )}
 
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.35rem', color: '#aaa', fontSize: '0.85rem' }}>
-                  Commission Type
-                </label>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button
-                    type="button"
-                    onClick={() => setEditingMember({ ...editingMember, commission_model: 'fixed', commission_rate: '5.00' })}
-                    style={{
-                      flex: 1,
-                      padding: '0.75rem',
-                      background: editingMember.commission_model === 'fixed' ? '#ff6b35' : '#2a2a2a',
-                      border: editingMember.commission_model === 'fixed' ? '2px solid #ff6b35' : '1px solid #3a3a3a',
-                      borderRadius: '8px',
-                      color: editingMember.commission_model === 'fixed' ? '#fff' : '#888',
-                      fontWeight: editingMember.commission_model === 'fixed' ? '600' : '400',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    $ per month
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditingMember({ ...editingMember, commission_model: 'percentage', commission_rate: '0.10' })}
-                    style={{
-                      flex: 1,
-                      padding: '0.75rem',
-                      background: editingMember.commission_model === 'percentage' ? '#ff6b35' : '#2a2a2a',
-                      border: editingMember.commission_model === 'percentage' ? '2px solid #ff6b35' : '1px solid #3a3a3a',
-                      borderRadius: '8px',
-                      color: editingMember.commission_model === 'percentage' ? '#fff' : '#888',
-                      fontWeight: editingMember.commission_model === 'percentage' ? '600' : '400',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    % of revenue
-                  </button>
-                </div>
-              </div>
-
               {(() => {
-                // Guardrail: a director can't give a sub-affiliate a higher
-                // rate than their own allotment from the company.
-                const ownRate = parseFloat(affiliate.commission_rate) || 0;
-                const isPercentage = editingMember.commission_model === 'percentage';
-                const rateMax = isPercentage ? ownRate : undefined;
-                const subRate = parseFloat(editingMember.commission_rate) || 0;
-                const overMax = isPercentage && rateMax !== undefined && subRate > rateMax;
+                // Always-percentage rate input. User types whole-number percent
+                // (e.g. 15), stored as decimal (0.15). Capped at director's own
+                // commission_rate allotment.
+                const ownRatePct = (parseFloat(affiliate.commission_rate) || 0) * 100;
+                // editingMember.commission_rate is stored as decimal in DB
+                // but the input here works in percent for clarity.
+                const currentDecimal = parseFloat(editingMember.commission_rate) || 0;
+                // If commission_rate looks already in percent form (e.g. someone
+                // entered "15"), respect that; otherwise convert decimal->percent.
+                const displayPct = currentDecimal > 1 ? currentDecimal : currentDecimal * 100;
+                const overMax = ownRatePct > 0 && displayPct > ownRatePct;
+                const onChangePct = (raw) => {
+                  const v = parseFloat(raw);
+                  if (Number.isNaN(v)) {
+                    setEditingMember({ ...editingMember, commission_rate: '', commission_model: 'percentage' });
+                    return;
+                  }
+                  const clamped = ownRatePct > 0 && v > ownRatePct ? ownRatePct : v;
+                  // Persist as DECIMAL — the rest of the app + webhook expect decimals.
+                  setEditingMember({ ...editingMember, commission_rate: (clamped / 100).toString(), commission_model: 'percentage' });
+                };
                 return (
                   <div style={{ marginBottom: '1rem' }}>
                     <label style={{ display: 'block', marginBottom: '0.35rem', color: '#aaa', fontSize: '0.85rem' }}>
-                      {isPercentage ? `Rate (e.g., 0.${String(Math.round(ownRate * 100)).padStart(2, '0')} = ${(ownRate * 100).toFixed(0)}%)` : 'Amount ($ per month)'}
+                      Recurring Commission (%)
                     </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max={rateMax}
-                      value={editingMember.commission_rate}
-                      onChange={(e) => {
-                        const v = parseFloat(e.target.value);
-                        const clamped = isPercentage && rateMax !== undefined && v > rateMax
-                          ? rateMax.toString()
-                          : e.target.value;
-                        setEditingMember({ ...editingMember, commission_rate: clamped });
-                      }}
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type="number"
+                        step="0.5"
+                        min="0"
+                        max={ownRatePct || undefined}
+                        value={Number.isNaN(displayPct) ? '' : (Math.round(displayPct * 100) / 100)}
+                        onChange={(e) => onChangePct(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '0.75rem',
+                          paddingRight: '2rem',
+                          background: '#2a2a2a',
+                          border: `1px solid ${overMax ? '#EF4444' : '#3a3a3a'}`,
+                          borderRadius: '8px',
+                          color: '#e0e0e0',
+                          fontSize: '1rem',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                      <span style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: '#888', pointerEvents: 'none' }}>%</span>
+                    </div>
+                    {ownRatePct > 0 && (
+                      <div style={{ color: overMax ? '#EF4444' : '#666', fontSize: '0.75rem', marginTop: '0.4rem' }}>
+                        Max {ownRatePct.toFixed(0)}% — this is your own allotment from Work Van.
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {(() => {
+                const durationStandard = ['', '6', '12', '24'];
+                const raw = (editingMember.commission_duration_months ?? '').toString();
+                const selectValue = durationStandard.includes(raw) ? raw : 'custom';
+                return (
+                  <div style={{ marginBottom: '1rem' }}>
+                    <label style={{ display: 'block', marginBottom: '0.35rem', color: '#aaa', fontSize: '0.85rem' }}>
+                      Payout Duration
+                    </label>
+                    <select
+                      value={selectValue}
+                      onChange={(e) => setEditingMember({
+                        ...editingMember,
+                        commission_duration_months: e.target.value === 'custom' ? '6' : e.target.value,
+                      })}
                       style={{
                         width: '100%',
                         padding: '0.75rem',
                         background: '#2a2a2a',
-                        border: `1px solid ${overMax ? '#EF4444' : '#3a3a3a'}`,
+                        border: '1px solid #3a3a3a',
                         borderRadius: '8px',
                         color: '#e0e0e0',
                         fontSize: '1rem'
                       }}
-                    />
-                    {isPercentage && rateMax !== undefined && (
-                      <div style={{ color: overMax ? '#EF4444' : '#666', fontSize: '0.75rem', marginTop: '0.4rem' }}>
-                        Max {(rateMax * 100).toFixed(0)}% — this is your own allotment from Work Van.
-                      </div>
+                    >
+                      <option value="">Perpetual (pays as long as the account stays active)</option>
+                      <option value="6">6 months per account</option>
+                      <option value="12">12 months per account</option>
+                      <option value="24">24 months per account</option>
+                      <option value="custom">Custom...</option>
+                    </select>
+                    {selectValue === 'custom' && (
+                      <input
+                        type="number"
+                        min="1"
+                        value={editingMember.commission_duration_months}
+                        onChange={(e) => setEditingMember({ ...editingMember, commission_duration_months: e.target.value })}
+                        placeholder="Months"
+                        style={{
+                          width: '100%',
+                          marginTop: '0.5rem',
+                          padding: '0.75rem',
+                          background: '#2a2a2a',
+                          border: '1px solid #3a3a3a',
+                          borderRadius: '8px',
+                          color: '#e0e0e0',
+                          fontSize: '1rem',
+                          boxSizing: 'border-box',
+                        }}
+                      />
                     )}
                   </div>
                 );
