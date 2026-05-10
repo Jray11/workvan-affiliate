@@ -12,7 +12,7 @@ import LeadTracker from './pages/LeadTracker';
 import Resources from './pages/Resources';
 import Announcements from './pages/Announcements';
 import Messages from './pages/Messages';
-import { LayoutDashboard, Users, DollarSign, UserPlus, LogOut, Menu, X, FileText, CheckCircle, Banknote, Building, Upload, TrendingUp, BookOpen, Bell, MessageSquare } from 'lucide-react';
+import { LayoutDashboard, Users, DollarSign, UserPlus, LogOut, Menu, X, FileText, CheckCircle, Banknote, Building, Upload, TrendingUp, BookOpen, Bell, MessageSquare, PlayCircle, ExternalLink, Loader } from 'lucide-react';
 
 export default function App() {
   const toast = useToast();
@@ -27,6 +27,7 @@ export default function App() {
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [overdueLeads, setOverdueLeads] = useState(0);
   const [unreadAnnouncements, setUnreadAnnouncements] = useState(0);
+  const [demoLoading, setDemoLoading] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
 
   // Splash screen
@@ -351,6 +352,30 @@ export default function App() {
     // Fire and forget — UI shouldn't block on this
     supabase.from('affiliates').update(update).eq('id', affiliateData.id)
       .then(({ error }) => { if (error) console.error('recordLogin failed:', error); });
+  };
+
+  const handleOpenDemo = async () => {
+    if (demoLoading || !affiliate?.id) return;
+    setDemoLoading(true);
+    try {
+      const resp = await fetch('https://workvanapp.com/api/affiliate-demo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ affiliateId: affiliate.id }),
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data?.success) {
+        toast.error(data?.error || 'Could not open demo account');
+        return;
+      }
+      // First call provisions + seeds — that takes a few seconds. The second
+      // call is fast. Either way we hand the affiliate a magic link.
+      window.open(data.magicLink, '_blank', 'noopener');
+    } catch (err) {
+      toast.error('Could not open demo account: ' + err.message);
+    } finally {
+      setDemoLoading(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -730,6 +755,32 @@ export default function App() {
           ))}
         </nav>
 
+        {/* View Demo Account */}
+        <button
+          onClick={handleOpenDemo}
+          disabled={demoLoading}
+          title="Open a sandboxed Work Van account preloaded with sample data — perfect for showing prospects what the product looks like."
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            padding: '0.75rem 1rem',
+            background: 'linear-gradient(135deg, #F05A28, #f7931e)',
+            border: 'none',
+            borderRadius: '8px',
+            color: '#fff',
+            fontSize: '0.9rem',
+            fontWeight: '600',
+            cursor: demoLoading ? 'wait' : 'pointer',
+            opacity: demoLoading ? 0.7 : 1,
+            marginBottom: '0.5rem',
+          }}
+        >
+          {demoLoading ? <Loader size={16} className="spin" /> : <PlayCircle size={18} />}
+          {demoLoading ? 'Opening demo…' : 'View Demo Account'}
+          {!demoLoading && <ExternalLink size={12} style={{ marginLeft: 'auto', opacity: 0.8 }} />}
+        </button>
+
         {/* Logout */}
         <button
           onClick={handleLogout}
@@ -894,6 +945,30 @@ export default function App() {
           ))}
 
           <button
+            onClick={handleOpenDemo}
+            disabled={demoLoading}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              padding: '1rem',
+              background: 'linear-gradient(135deg, #F05A28, #f7931e)',
+              border: 'none',
+              borderRadius: '8px',
+              color: '#fff',
+              fontSize: '1rem',
+              fontWeight: '600',
+              cursor: demoLoading ? 'wait' : 'pointer',
+              opacity: demoLoading ? 0.7 : 1,
+              marginTop: '1rem'
+            }}
+          >
+            {demoLoading ? <Loader size={20} className="spin" /> : <PlayCircle size={20} />}
+            {demoLoading ? 'Opening demo…' : 'View Demo Account'}
+          </button>
+
+          <button
             onClick={handleLogout}
             style={{
               width: '100%',
@@ -907,7 +982,7 @@ export default function App() {
               color: '#888',
               fontSize: '1rem',
               cursor: 'pointer',
-              marginTop: '1rem'
+              marginTop: '0.75rem'
             }}
           >
             <LogOut size={20} />
