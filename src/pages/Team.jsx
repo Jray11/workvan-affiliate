@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { useToast } from '../ToastContext';
-import { Users, UserPlus, TrendingUp, DollarSign, Building2, Plus, X, Edit2, UserX, UserCheck, ChevronDown, ChevronRight, Crown, CheckCircle } from 'lucide-react';
+import { Users, UserPlus, TrendingUp, DollarSign, Building2, Plus, X, Edit2, UserX, UserCheck, ChevronDown, ChevronRight, Crown, CheckCircle, Mail } from 'lucide-react';
 import { TeamSkeleton } from '../Skeleton';
 
 export default function Team({ affiliate, readOnly }) {
@@ -178,9 +178,33 @@ export default function Team({ affiliate, readOnly }) {
         tier: selectedTier
       };
 
-      const { error } = await supabase.from('affiliates').insert([insertData]);
+      const { data: inserted, error } = await supabase
+        .from('affiliates')
+        .insert([insertData])
+        .select('id, name, email')
+        .single();
 
       if (error) throw error;
+
+      // Fire the password-setup email so the new member can actually log in.
+      // Non-fatal — if it fails, the row still exists and the director can
+      // hit "Resend invite" from the team list.
+      let emailSent = false;
+      if (inserted?.email) {
+        try {
+          const resp = await fetch('https://workvanapp.com/api/send-affiliate-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'password_setup',
+              affiliate: { id: inserted.id, name: inserted.name, email: inserted.email, portal_enabled: true },
+            }),
+          });
+          emailSent = resp.ok;
+        } catch (sendErr) {
+          console.error('Failed to send setup email:', sendErr);
+        }
+      }
 
       setShowAddForm(false);
       setNewMember({
@@ -189,11 +213,43 @@ export default function Team({ affiliate, readOnly }) {
         tier: isDirector ? 'recruiter' : 'affiliate',
       });
       loadTeam();
-      toast.success(selectedTier === 'recruiter' ? 'Team leader added' : 'Affiliate added');
+      const noun = selectedTier === 'recruiter' ? 'Team leader' : 'Affiliate';
+      if (emailSent) {
+        toast.success(`${noun} added — setup email sent to ${inserted.email}`);
+      } else if (inserted?.email) {
+        toast.success(`${noun} added — couldn't send setup email, use Resend Invite`);
+      } else {
+        toast.success(`${noun} added (no email on file)`);
+      }
     } catch (error) {
       toast.error('Failed to add team member: ' + error.message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleResendInvite = async (member) => {
+    if (!member.email) {
+      toast.error('No email on file for this member');
+      return;
+    }
+    try {
+      const resp = await fetch('https://workvanapp.com/api/send-affiliate-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'password_setup',
+          affiliate: { id: member.id, name: member.name, email: member.email, portal_enabled: true },
+        }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (resp.ok && data.success) {
+        toast.success(`Setup email sent to ${member.email}`);
+      } else {
+        toast.error(data.error || 'Failed to send invite');
+      }
+    } catch (err) {
+      toast.error('Failed to send invite: ' + err.message);
     }
   };
 
@@ -633,6 +689,22 @@ export default function Team({ affiliate, readOnly }) {
                         >
                           <Edit2 size={14} />
                         </button>
+                        {member.email && (
+                          <button
+                            onClick={() => handleResendInvite(member)}
+                            title="Resend invite"
+                            style={{
+                              padding: '0.35rem',
+                              background: '#2a2a2a',
+                              border: 'none',
+                              borderRadius: '6px',
+                              color: '#4ecca3',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <Mail size={14} />
+                          </button>
+                        )}
                         <button
                           onClick={() => handleToggleActive(member)}
                           title={member.active ? 'Deactivate' : 'Reactivate'}
