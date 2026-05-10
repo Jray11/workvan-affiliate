@@ -27,6 +27,9 @@ export default function Team({ affiliate, readOnly }) {
   const [saving, setSaving] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
   const [promotingMember, setPromotingMember] = useState(null);
+  const [viewingMember, setViewingMember] = useState(null);
+  const [memberDetail, setMemberDetail] = useState(null); // { companies, subs, totals } for viewingMember
+  const [memberDetailLoading, setMemberDetailLoading] = useState(false);
 
   // Director-specific state
   const [teamLeaderSubs, setTeamLeaderSubs] = useState({}); // { leaderId: [subs] }
@@ -35,6 +38,67 @@ export default function Team({ affiliate, readOnly }) {
   useEffect(() => {
     loadTeam();
   }, [affiliate.id]);
+
+  // Load detail (referred companies, sub-affiliates, commission totals) when
+  // a member is opened. Multiple queries run in parallel.
+  useEffect(() => {
+    if (!viewingMember) {
+      setMemberDetail(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setMemberDetailLoading(true);
+      try {
+        const [companiesRes, subsRes, commissionsRes, authRes] = await Promise.all([
+          supabase
+            .from('companies')
+            .select('id, name, subscription_status, trial_ends_at, created_at, first_paid_at')
+            .eq('referred_by_affiliate_id', viewingMember.id)
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('affiliates')
+            .select('id, name, code, tier, active, last_login_at, commission_rate, password_hash')
+            .eq('parent_affiliate_id', viewingMember.id),
+          supabase
+            .from('affiliate_commissions')
+            .select('commission_amount, status, commission_type')
+            .eq('affiliate_id', viewingMember.id),
+          supabase
+            .from('affiliates')
+            .select('last_login_at, login_count, password_setup_sent_at, password_setup_token, password_hash, agreed_to_terms_at, payout_setup_complete, payout_setup_skipped, created_at')
+            .eq('id', viewingMember.id)
+            .maybeSingle(),
+        ]);
+        if (cancelled) return;
+
+        const totals = (commissionsRes.data || []).reduce((acc, row) => {
+          const amt = parseFloat(row.commission_amount) || 0;
+          acc.lifetime += amt;
+          if (row.status === 'pending') acc.pending += amt;
+          else if (row.status === 'paid') acc.paid += amt;
+          return acc;
+        }, { lifetime: 0, pending: 0, paid: 0 });
+
+        setMemberDetail({
+          companies: companiesRes.data || [],
+          subs: subsRes.data || [],
+          totals,
+          identity: authRes.data || {},
+        });
+      } finally {
+        if (!cancelled) setMemberDetailLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [viewingMember?.id]);
+
+  // Invite/login state helper used in row badges and the detail modal
+  const inviteState = (member) => {
+    if (member.password_hash || member.last_login_at) return { label: 'Active', color: '#4ecca3' };
+    if (member.password_setup_sent_at) return { label: 'Invite sent', color: '#f0a500' };
+    return { label: 'Not invited', color: '#888' };
+  };
 
   const loadTeam = async () => {
     try {
@@ -598,13 +662,18 @@ export default function Team({ affiliate, readOnly }) {
           {activeMembers.map(member => (
             <div key={member.id}>
               <div
+                onClick={() => setViewingMember(member)}
                 style={{
                   background: '#1a1a1a',
                   borderRadius: expandedLeaders[member.id] ? '12px 12px 0 0' : '12px',
                   padding: '1.25rem',
                   border: '1px solid #2a2a2a',
-                  borderBottom: expandedLeaders[member.id] ? '1px solid #333' : '1px solid #2a2a2a'
+                  borderBottom: expandedLeaders[member.id] ? '1px solid #333' : '1px solid #2a2a2a',
+                  cursor: 'pointer',
+                  transition: 'border-color 0.15s'
                 }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#4ecca3'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#2a2a2a'; }}
               >
                 <div style={{
                   display: 'flex',
@@ -617,7 +686,7 @@ export default function Team({ affiliate, readOnly }) {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     {isDirector && (teamLeaderSubs[member.id]?.length > 0) && (
                       <button
-                        onClick={() => toggleLeaderExpanded(member.id)}
+                        onClick={(e) => { e.stopPropagation(); toggleLeaderExpanded(member.id); }}
                         style={{
                           background: 'none',
                           border: 'none',
@@ -679,6 +748,27 @@ export default function Team({ affiliate, readOnly }) {
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    {(() => {
+                      const inv = inviteState(member);
+                      // Only surface the invite pill when it's NOT "Active" — once
+                      // they've logged in / set password, they're a normal team
+                      // member and we don't need to keep showing it.
+                      if (inv.label === 'Active') return null;
+                      return (
+                        <span style={{
+                          padding: '0.25rem 0.6rem',
+                          background: `${inv.color}20`,
+                          color: inv.color,
+                          borderRadius: '4px',
+                          fontSize: '0.7rem',
+                          fontWeight: '600',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.02em',
+                        }}>
+                          {inv.label}
+                        </span>
+                      );
+                    })()}
                     <span style={{
                       padding: '0.25rem 0.6rem',
                       background: member.active ? '#4ecca320' : '#88888820',
@@ -692,16 +782,19 @@ export default function Team({ affiliate, readOnly }) {
                     {!readOnly && (
                       <>
                         <button
-                          onClick={() => setEditingMember({
-                            id: member.id,
-                            name: member.name,
-                            commission_model: 'percentage',
-                            commission_rate: member.commission_rate,
-                            commission_duration_months: member.commission_duration_months?.toString() ?? '',
-                            close_bonus_amount: member.close_bonus_amount?.toString() || '0',
-                            enablement_bonus_amount: member.enablement_bonus_amount?.toString() || '0',
-                            tier: member.tier || 'affiliate'
-                          })}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingMember({
+                              id: member.id,
+                              name: member.name,
+                              commission_model: 'percentage',
+                              commission_rate: member.commission_rate,
+                              commission_duration_months: member.commission_duration_months?.toString() ?? '',
+                              close_bonus_amount: member.close_bonus_amount?.toString() || '0',
+                              enablement_bonus_amount: member.enablement_bonus_amount?.toString() || '0',
+                              tier: member.tier || 'affiliate'
+                            });
+                          }}
                           title="Edit"
                           style={{
                             padding: '0.35rem',
@@ -716,7 +809,7 @@ export default function Team({ affiliate, readOnly }) {
                         </button>
                         {member.email && (
                           <button
-                            onClick={() => handleResendInvite(member)}
+                            onClick={(e) => { e.stopPropagation(); handleResendInvite(member); }}
                             title="Resend invite"
                             style={{
                               padding: '0.35rem',
@@ -731,7 +824,7 @@ export default function Team({ affiliate, readOnly }) {
                           </button>
                         )}
                         <button
-                          onClick={() => handleToggleActive(member)}
+                          onClick={(e) => { e.stopPropagation(); handleToggleActive(member); }}
                           title={member.active ? 'Deactivate' : 'Reactivate'}
                           style={{
                             padding: '0.35rem',
@@ -798,7 +891,7 @@ export default function Team({ affiliate, readOnly }) {
                 {/* Expand button for directors with subs */}
                 {isDirector && (teamLeaderSubs[member.id]?.length > 0) && (
                   <button
-                    onClick={() => toggleLeaderExpanded(member.id)}
+                    onClick={(e) => { e.stopPropagation(); toggleLeaderExpanded(member.id); }}
                     style={{
                       width: '100%',
                       marginTop: '0.75rem',
@@ -1321,6 +1414,192 @@ export default function Team({ affiliate, readOnly }) {
           </div>
         </div>
       )}
+      {/* Member Detail Modal — opens when a row is clicked */}
+      {viewingMember && (
+        <div
+          onClick={() => setViewingMember(null)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
+            display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+            padding: '2rem 1rem', zIndex: 1000, overflowY: 'auto',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#0f0f0f', borderRadius: '12px', padding: '1.5rem',
+              border: '1px solid #2a2a2a', width: '100%', maxWidth: '760px',
+              color: '#e0e0e0',
+            }}
+          >
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{
+                  width: '48px', height: '48px',
+                  background: viewingMember.tier === 'recruiter'
+                    ? 'linear-gradient(135deg, #f0a500, #e69600)'
+                    : 'linear-gradient(135deg, #3498db, #2980b9)',
+                  borderRadius: '50%', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', fontWeight: '700', color: '#fff', fontSize: '1.1rem',
+                }}>
+                  {viewingMember.name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '1.15rem' }}>{viewingMember.name}</div>
+                  <div style={{ color: '#888', fontSize: '0.85rem' }}>
+                    Code: <code style={{ color: '#4ecca3' }}>{viewingMember.code}</code>
+                    {viewingMember.tier === 'recruiter' && (
+                      <span style={{ marginLeft: '0.5rem', padding: '0.1rem 0.4rem', background: '#9b59b620', color: '#9b59b6', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 600 }}>MANAGER</span>
+                    )}
+                    {(() => {
+                      const inv = inviteState(viewingMember);
+                      return (
+                        <span style={{ marginLeft: '0.5rem', padding: '0.1rem 0.4rem', background: `${inv.color}20`, color: inv.color, borderRadius: '4px', fontSize: '0.7rem', fontWeight: 600 }}>
+                          {inv.label}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setViewingMember(null)}
+                style={{ background: 'transparent', border: 'none', color: '#888', cursor: 'pointer', padding: '0.25rem' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Stat strip */}
+            {memberDetailLoading ? (
+              <div style={{ color: '#666', fontSize: '0.9rem', textAlign: 'center', padding: '2rem' }}>
+                Loading…
+              </div>
+            ) : memberDetail ? (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.6rem', marginBottom: '1.25rem' }}>
+                  <DetailStat label="Lifetime earned" value={formatCurrency(memberDetail.totals.lifetime)} accent="#4ecca3" />
+                  <DetailStat label="Pending" value={formatCurrency(memberDetail.totals.pending)} accent="#f0a500" />
+                  <DetailStat label="Paid out" value={formatCurrency(memberDetail.totals.paid)} accent="#9b59b6" />
+                  <DetailStat label="Accounts" value={String(memberDetail.companies.length)} accent="#3498db" />
+                  {viewingMember.tier === 'recruiter' && (
+                    <DetailStat label="Sub-affiliates" value={String(memberDetail.subs.length)} accent="#9b59b6" />
+                  )}
+                </div>
+
+                {/* Compensation summary */}
+                <DetailSection title="Compensation">
+                  <DetailRow label="Recurring rate" value={
+                    viewingMember.commission_model === 'percentage'
+                      ? `${(parseFloat(viewingMember.commission_rate) * 100).toFixed(0)}% of revenue`
+                      : `${formatCurrency(viewingMember.commission_rate)} / month`
+                  } />
+                  <DetailRow label="Payout duration" value={
+                    viewingMember.commission_duration_months
+                      ? `${viewingMember.commission_duration_months} months per account`
+                      : 'Perpetual'
+                  } />
+                  <DetailRow label="Signing & onboarding bonus" value={
+                    formatCurrency(((parseFloat(viewingMember.close_bonus_amount) || 0) + (parseFloat(viewingMember.enablement_bonus_amount) || 0)))
+                  } />
+                </DetailSection>
+
+                {/* Activity */}
+                <DetailSection title="Activity">
+                  <DetailRow label="Joined team" value={memberDetail.identity?.created_at ? new Date(memberDetail.identity.created_at).toLocaleDateString() : '—'} />
+                  <DetailRow label="Last login" value={memberDetail.identity?.last_login_at ? new Date(memberDetail.identity.last_login_at).toLocaleString() : 'Never'} />
+                  <DetailRow label="Total logins" value={String(memberDetail.identity?.login_count ?? 0)} />
+                  <DetailRow label="Invite sent" value={memberDetail.identity?.password_setup_sent_at ? new Date(memberDetail.identity.password_setup_sent_at).toLocaleDateString() : '—'} />
+                  <DetailRow label="Setup complete" value={memberDetail.identity?.password_hash ? 'Yes — password set' : 'Not yet'} />
+                  <DetailRow label="Terms accepted" value={memberDetail.identity?.agreed_to_terms_at ? new Date(memberDetail.identity.agreed_to_terms_at).toLocaleDateString() : 'Not yet'} />
+                  <DetailRow label="Payout setup" value={
+                    memberDetail.identity?.payout_setup_complete ? 'Complete' :
+                    memberDetail.identity?.payout_setup_skipped ? 'Skipped (will collect at first payout)' :
+                    'Not yet'
+                  } />
+                </DetailSection>
+
+                {/* Referred accounts */}
+                <DetailSection title={`Referred accounts (${memberDetail.companies.length})`}>
+                  {memberDetail.companies.length === 0 ? (
+                    <div style={{ color: '#666', fontSize: '0.85rem', padding: '0.5rem 0' }}>
+                      No referrals yet — this person hasn't brought in any customers.
+                    </div>
+                  ) : memberDetail.companies.map((c) => (
+                    <div key={c.id} style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '0.6rem 0', borderBottom: '1px solid #1f1f1f', gap: '0.5rem',
+                    }}>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ color: '#e0e0e0', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {c.name || '(unnamed)'}
+                        </div>
+                        <div style={{ color: '#666', fontSize: '0.75rem' }}>
+                          Joined {new Date(c.created_at).toLocaleDateString()}
+                          {c.first_paid_at ? ` · First paid ${new Date(c.first_paid_at).toLocaleDateString()}` : ''}
+                        </div>
+                      </div>
+                      <span style={{
+                        padding: '0.2rem 0.55rem', borderRadius: '999px', fontSize: '0.7rem', fontWeight: 600,
+                        background: c.subscription_status === 'active' ? '#10B98120'
+                          : c.subscription_status === 'trialing' ? '#F59E0B20'
+                          : c.subscription_status === 'past_due' ? '#EF444420'
+                          : '#88888820',
+                        color: c.subscription_status === 'active' ? '#10B981'
+                          : c.subscription_status === 'trialing' ? '#F59E0B'
+                          : c.subscription_status === 'past_due' ? '#EF4444'
+                          : '#888',
+                      }}>
+                        {c.subscription_status || 'unknown'}
+                      </span>
+                    </div>
+                  ))}
+                </DetailSection>
+
+                {/* Sub-team */}
+                {viewingMember.tier === 'recruiter' && (
+                  <DetailSection title={`Their team (${memberDetail.subs.length})`}>
+                    {memberDetail.subs.length === 0 ? (
+                      <div style={{ color: '#666', fontSize: '0.85rem', padding: '0.5rem 0' }}>
+                        No sub-affiliates yet.
+                      </div>
+                    ) : memberDetail.subs.map((s) => (
+                      <div key={s.id} style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        padding: '0.6rem 0', borderBottom: '1px solid #1f1f1f', gap: '0.5rem',
+                      }}>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ color: '#e0e0e0', fontWeight: 500 }}>{s.name}</div>
+                          <div style={{ color: '#666', fontSize: '0.75rem' }}>
+                            Code: <code style={{ color: '#4ecca3' }}>{s.code}</code>
+                            {' · '}{(parseFloat(s.commission_rate) * 100).toFixed(0)}%
+                            {s.last_login_at ? ` · last login ${new Date(s.last_login_at).toLocaleDateString()}` : ' · never logged in'}
+                          </div>
+                        </div>
+                        <span style={{
+                          padding: '0.2rem 0.55rem', borderRadius: '999px', fontSize: '0.7rem', fontWeight: 600,
+                          background: s.active ? '#10B98120' : '#88888820',
+                          color: s.active ? '#10B981' : '#888',
+                        }}>
+                          {s.active ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+                    ))}
+                  </DetailSection>
+                )}
+
+                {/* Contact */}
+                <DetailSection title="Contact">
+                  <DetailRow label="Email" value={viewingMember.email || '—'} />
+                  <DetailRow label="Phone" value={viewingMember.phone || '—'} />
+                </DetailSection>
+              </>
+            ) : null}
+          </div>
+        </div>
+      )}
+
       {/* Edit Member Modal */}
       {editingMember && !readOnly && (
         <div style={{
@@ -1704,6 +1983,43 @@ function RecruitLinkCard({ code }) {
           )}
         </button>
       </div>
+    </div>
+  );
+}
+
+// ---- Small helpers used by the Member Detail modal ----
+
+function DetailStat({ label, value, accent }) {
+  return (
+    <div style={{ background: '#1a1a1a', borderRadius: '8px', padding: '0.65rem 0.75rem', border: '1px solid #2a2a2a' }}>
+      <div style={{ color: '#666', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.2rem' }}>
+        {label}
+      </div>
+      <div style={{ color: accent || '#e0e0e0', fontWeight: 700, fontSize: '1.05rem', fontFamily: "'JetBrains Mono', monospace" }}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function DetailSection({ title, children }) {
+  return (
+    <div style={{ marginBottom: '1.25rem' }}>
+      <div style={{ color: '#888', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.5rem' }}>
+        {title}
+      </div>
+      <div style={{ background: '#1a1a1a', borderRadius: '8px', padding: '0.5rem 0.85rem', border: '1px solid #2a2a2a' }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.45rem 0', gap: '0.5rem' }}>
+      <span style={{ color: '#888', fontSize: '0.85rem' }}>{label}</span>
+      <span style={{ color: '#e0e0e0', fontSize: '0.9rem', fontWeight: 500, textAlign: 'right' }}>{value}</span>
     </div>
   );
 }
