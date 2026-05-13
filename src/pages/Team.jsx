@@ -1062,24 +1062,34 @@ export default function Team({ affiliate, readOnly }) {
 
       {/* Add Member Modal */}
       {showAddForm && !readOnly && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(0,0,0,0.85)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '1rem'
-        }}>
-          <div style={{
-            background: '#1a1a1a',
-            borderRadius: '12px',
-            padding: '1.5rem',
-            width: '100%',
-            maxWidth: '450px',
-            border: '1px solid #3a3a3a'
-          }}>
+        <div
+          onClick={() => setShowAddForm(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.85)',
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '2rem 1rem',
+            overflowY: 'auto',
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#1a1a1a',
+              borderRadius: '12px',
+              padding: '1.5rem',
+              width: '100%',
+              maxWidth: '450px',
+              border: '1px solid #3a3a3a',
+              boxSizing: 'border-box',
+              marginBottom: '2rem',
+            }}
+          >
             <div style={{
               display: 'flex',
               justifyContent: 'space-between',
@@ -1602,23 +1612,32 @@ export default function Team({ affiliate, readOnly }) {
 
       {/* Edit Member Modal */}
       {editingMember && !readOnly && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(0,0,0,0.85)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '1rem'
-        }}>
-          <div style={{
-            background: '#1a1a1a',
-            borderRadius: '12px',
-            padding: '1.5rem',
-            width: '100%',
-            maxWidth: '400px',
-            border: '1px solid #3a3a3a'
+        <div
+          onClick={() => setEditingMember(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.85)',
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '2rem 1rem',
+            overflowY: 'auto',
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#1a1a1a',
+              borderRadius: '12px',
+              padding: '1.5rem',
+              width: '100%',
+              maxWidth: '400px',
+              border: '1px solid #3a3a3a',
+              boxSizing: 'border-box',
+              marginBottom: '2rem',
           }}>
             <div style={{
               display: 'flex',
