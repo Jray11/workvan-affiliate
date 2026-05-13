@@ -1923,6 +1923,14 @@ export default function Team({ affiliate, readOnly }) {
 function RecruitLinkCard({ code }) {
   const link = `https://affiliates.workvanapp.com/join/${code}`;
   const [copied, setCopied] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
+
+  // api.qrserver.com renders a real QR for any URL. PNG for general use,
+  // SVG for print (signs / large banners) where you want infinite scaling.
+  const qrThumb = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(link)}&color=F05A28&margin=4`;
+  const qrLarge = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(link)}&color=F05A28&margin=10`;
+  const qrPng   = `https://api.qrserver.com/v1/create-qr-code/?size=1000x1000&data=${encodeURIComponent(link)}&color=F05A28&margin=20&format=png`;
+  const qrSvg   = `https://api.qrserver.com/v1/create-qr-code/?size=1000x1000&data=${encodeURIComponent(link)}&color=F05A28&margin=20&format=svg`;
 
   const handleCopy = async () => {
     try {
@@ -1951,14 +1959,30 @@ function RecruitLinkCard({ code }) {
       marginBottom: '1.5rem',
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '0.75rem' }}>
-        <div>
+        <div style={{ flex: 1, minWidth: 200 }}>
           <div style={{ color: '#f0a500', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.35rem' }}>
             Your recruit link
           </div>
           <div style={{ color: '#aaa', fontSize: '0.85rem' }}>
-            Share this anywhere — text, email, social. Anyone who signs up through it lands on your team.
+            Share this anywhere — text, email, social, or print it on a sign. Anyone who signs up through it lands on your team.
           </div>
         </div>
+        <button
+          type="button"
+          onClick={() => setQrOpen(true)}
+          title="Click to enlarge / download"
+          style={{
+            background: '#fff',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '6px',
+            cursor: 'pointer',
+            flexShrink: 0,
+            lineHeight: 0,
+          }}
+        >
+          <img src={qrThumb} alt="QR for your recruit link" width="80" height="80" style={{ display: 'block' }} />
+        </button>
       </div>
 
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -2002,6 +2026,75 @@ function RecruitLinkCard({ code }) {
           )}
         </button>
       </div>
+
+      {qrOpen && (
+        <div
+          onClick={() => setQrOpen(false)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
+            display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+            padding: '2rem 1rem', zIndex: 1000, overflowY: 'auto',
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#1a1a1a', borderRadius: '12px', padding: '1.5rem',
+              width: '100%', maxWidth: '440px', border: '1px solid #3a3a3a',
+              textAlign: 'center', marginBottom: '2rem', boxSizing: 'border-box',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ color: '#e0e0e0', fontWeight: 700, margin: 0, fontSize: '1.1rem' }}>
+                Your recruit QR
+              </h3>
+              <button onClick={() => setQrOpen(false)} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', padding: 4 }}>
+                <X size={20} />
+              </button>
+            </div>
+            <div style={{ background: '#fff', borderRadius: '12px', padding: '1rem', display: 'inline-block', marginBottom: '1rem' }}>
+              <img src={qrLarge} alt="Recruit QR" width="320" height="320" style={{ display: 'block', maxWidth: '100%', height: 'auto' }} />
+            </div>
+            <p style={{ color: '#888', fontSize: '0.85rem', marginBottom: '0.25rem' }}>
+              Scan to open your recruit link:
+            </p>
+            <p style={{ color: '#4ecca3', fontSize: '0.8rem', wordBreak: 'break-all', marginBottom: '1.25rem', fontFamily: '"SF Mono", Menlo, Consolas, monospace' }}>
+              {link}
+            </p>
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <a
+                href={qrPng}
+                download={`workvan-recruit-qr-${code}.png`}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+                  padding: '0.6rem 1rem', background: '#f0a500', border: 'none',
+                  borderRadius: '8px', color: '#fff', fontWeight: 600,
+                  textDecoration: 'none', fontSize: '0.85rem',
+                }}
+              >
+                Download PNG
+              </a>
+              <a
+                href={qrSvg}
+                download={`workvan-recruit-qr-${code}.svg`}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+                  padding: '0.6rem 1rem', background: 'transparent',
+                  border: '1px solid #f0a500', borderRadius: '8px', color: '#f0a500',
+                  fontWeight: 600, textDecoration: 'none', fontSize: '0.85rem',
+                }}
+              >
+                Download SVG
+              </a>
+            </div>
+            <p style={{ color: '#666', fontSize: '0.7rem', marginTop: '1rem', lineHeight: 1.5 }}>
+              <strong style={{ color: '#888' }}>PNG</strong> works for any size up to ~1000×1000px.
+              For large signs or banners, use <strong style={{ color: '#888' }}>SVG</strong> — it stays crisp at any size.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
