@@ -1970,18 +1970,25 @@ function RecruitLinkCard({ code }) {
         <button
           type="button"
           onClick={() => setQrOpen(true)}
-          title="Click to enlarge / download"
+          title="Tap to enlarge & download"
           style={{
-            background: '#fff',
+            background: 'transparent',
             border: 'none',
-            borderRadius: '8px',
-            padding: '6px',
             cursor: 'pointer',
             flexShrink: 0,
-            lineHeight: 0,
+            padding: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '4px',
           }}
         >
-          <img src={qrThumb} alt="QR for your recruit link" width="80" height="80" style={{ display: 'block' }} />
+          <div style={{ background: '#fff', borderRadius: '8px', padding: '6px', lineHeight: 0 }}>
+            <img src={qrThumb} alt="QR for your recruit link" width="80" height="80" style={{ display: 'block' }} />
+          </div>
+          <span style={{ color: '#f0a500', fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.04em' }}>
+            Tap to enlarge / save
+          </span>
         </button>
       </div>
 
