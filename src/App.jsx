@@ -8,11 +8,12 @@ import Dashboard from './pages/Dashboard';
 import Referrals from './pages/Referrals';
 import Commissions from './pages/Commissions';
 import Team from './pages/Team';
+import Equity from './pages/Equity';
 import LeadTracker from './pages/LeadTracker';
 import Resources from './pages/Resources';
 import Announcements from './pages/Announcements';
 import Messages from './pages/Messages';
-import { LayoutDashboard, Users, DollarSign, UserPlus, LogOut, Menu, X, FileText, CheckCircle, Banknote, Building, Upload, TrendingUp, BookOpen, Bell, MessageSquare, PlayCircle, ExternalLink, Loader } from 'lucide-react';
+import { LayoutDashboard, Users, DollarSign, UserPlus, LogOut, Menu, X, FileText, CheckCircle, Banknote, Building, Upload, TrendingUp, BookOpen, Bell, MessageSquare, PlayCircle, ExternalLink, Loader, Award } from 'lucide-react';
 
 export default function App() {
   const toast = useToast();
@@ -28,6 +29,7 @@ export default function App() {
   const [overdueLeads, setOverdueLeads] = useState(0);
   const [unreadAnnouncements, setUnreadAnnouncements] = useState(0);
   const [demoLoading, setDemoLoading] = useState(false);
+  const [hasEquity, setHasEquity] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
 
   // Splash screen
@@ -260,6 +262,22 @@ export default function App() {
     loadOverdueLeads(affiliateData.id);
     loadUnreadAnnouncements(affiliateData);
     loadUnreadMessages(affiliateData);
+    loadEquityFlag(affiliateData.id);
+  };
+
+  const loadEquityFlag = async (affiliateId) => {
+    // Surfaces the Equity nav item only when the director actually has
+    // grants or a milestone ladder. Two cheap counts in parallel; if either
+    // is > 0 we show the page.
+    try {
+      const [g, l] = await Promise.all([
+        supabase.from('seu_grants').select('id', { count: 'exact', head: true }).eq('affiliate_id', affiliateId),
+        supabase.from('seu_milestone_ladders').select('id', { count: 'exact', head: true }).eq('affiliate_id', affiliateId),
+      ]);
+      setHasEquity((g.count || 0) > 0 || (l.count || 0) > 0);
+    } catch {
+      setHasEquity(false);
+    }
   };
 
   const loadUnreadMessages = async (affiliateData) => {
@@ -571,6 +589,10 @@ export default function App() {
     navItems.push({ id: 'team', label: 'My Team', icon: UserPlus });
   }
 
+  if (hasEquity) {
+    navItems.push({ id: 'equity', label: 'Equity', icon: Award });
+  }
+
   const renderPage = () => {
     switch (currentPage) {
       case 'leads':
@@ -587,6 +609,8 @@ export default function App() {
         return <Announcements affiliate={affiliate} onRead={() => setUnreadAnnouncements(prev => Math.max(0, prev - 1))} />;
       case 'team':
         return (affiliate.tier === 'recruiter' || affiliate.tier === 'director') ? <Team affiliate={affiliate} readOnly={isReadOnly} /> : <Dashboard affiliate={affiliate} onAffiliateUpdate={isReadOnly ? undefined : setAffiliate} overdueLeads={overdueLeads} />;
+      case 'equity':
+        return hasEquity ? <Equity affiliate={affiliate} /> : <Dashboard affiliate={affiliate} onAffiliateUpdate={isReadOnly ? undefined : setAffiliate} overdueLeads={overdueLeads} />;
       default:
         return <Dashboard affiliate={affiliate} onAffiliateUpdate={isReadOnly ? undefined : setAffiliate} overdueLeads={overdueLeads} />;
     }
